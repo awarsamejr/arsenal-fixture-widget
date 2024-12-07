@@ -27,8 +27,9 @@ public class Main {
                 LocalDate date = LocalDate.parse(biter[0]);
                 String team = biter[1];
                 String location = biter[2];
+                String competition = biter[3];
 
-                Fixture fixture = new Fixture(date, team, location);
+                Fixture fixture = new Fixture(date, team, location, competition);
                 schedule.add(fixture);
             }
 
