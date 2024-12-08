@@ -70,7 +70,7 @@ public class Main {
 
         //Create a panel to hold components
         JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(4, 1)); //panel som består av 3 rader og 1 kollon
+        panel.setLayout(new GridLayout(4, 1)); //panel som består av 4 rader og 1 kollon
 
         //add components
         JLabel titleLabel = new JLabel("Arsenal Fixture Widget", SwingConstants.CENTER);
