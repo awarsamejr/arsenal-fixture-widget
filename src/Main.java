@@ -26,8 +26,9 @@ public class Main {
                 String team = biter[1];
                 String location = biter[2];
                 String competition = biter[3];
+                String time = biter[4];
 
-                Fixture fixture = new Fixture(date, team, location, competition);
+                Fixture fixture = new Fixture(date, team, location, competition, time);
                 schedule.add(fixture);
             }
 
@@ -65,7 +66,7 @@ public class Main {
         //Main Window
         JFrame frame = new JFrame("Arsenal Fixture Widget");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(400,300);
+        frame.setSize(500,500);
         frame.setLocationRelativeTo(null);
 
         //Create a panel to hold components
@@ -85,7 +86,7 @@ public class Main {
         
         viewButton.addActionListener(e -> {
             JFrame viewFrame = new JFrame("All Fixtures");
-            viewFrame.setSize(300,200);
+            viewFrame.setSize(500,400);
             viewFrame.setLocationRelativeTo(null);
 
             JTextArea textArea = new JTextArea();
