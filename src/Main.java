@@ -62,29 +62,32 @@ public class Main {
     }
 
 
-    public static void launchGUI(){    
-        //Main Window
+    public static void launchGUI() {    
+        // Main Window
         JFrame frame = new JFrame("Arsenal Fixture Widget");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(500,500);
+        frame.setSize(650, 500);
         frame.setLocationRelativeTo(null);
     
-        //app icon
-        ImageIcon appIcon = new ImageIcon("arsenal-fixture-widget/arsenal_cannon.png"); // Replace with your icon file
-        Image scaledImage = appIcon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH); // Resize to 32x32
-        ImageIcon scaledIcon = new ImageIcon(scaledImage);
-        frame.setIconImage(scaledIcon.getImage());
+        // Application Icon
+        ImageIcon appIcon = new ImageIcon("arsenal-fixture-widget/arsenal_cannon.png");
+        Image scaledImage = appIcon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
+        frame.setIconImage(scaledImage);
     
-        JPanel panel = new JPanel();
+        // Main Panel with BorderLayout
+        JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.decode("#800020")); // Burgundy background
-        panel.setLayout(new GridLayout(4, 1, 0, 20)); // Vertical layout
     
+        // Title Label (TOP OF THE SCREEN (NORTH))
         JLabel titleLabel = new JLabel("Arsenal Fixtures", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Serif", Font.BOLD, 40)); // Bold and large font
+        titleLabel.setFont(new Font("Serif", Font.BOLD, 40));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0)); //Gives the title som breathing room
         titleLabel.setForeground(Color.decode("#FFD700")); // Gold title text
-        titleLabel.setHorizontalTextPosition(SwingConstants.CENTER); // Center text below the badge
-        titleLabel.setVerticalTextPosition(SwingConstants.BOTTOM); // Position badge above the text
-        panel.add(titleLabel);
+        panel.add(titleLabel, BorderLayout.NORTH); // Add title to the top
+    
+        // Button Panel (CENTER)
+        JPanel buttonPanel = new JPanel(new GridLayout(3, 1, 0, 10));
+        buttonPanel.setBackground(Color.decode("#800020")); // Match background
     
         Font buttonFont = new Font("Arial", Font.PLAIN, 16);
     
@@ -93,63 +96,80 @@ public class Main {
         viewButton.setBackground(Color.decode("#5A001F")); // Dark Red
         viewButton.setForeground(Color.decode("#FFD700")); // Gold text
         viewButton.setOpaque(true);
-        viewButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2)); // Black border
-        panel.add(viewButton);
+        viewButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2));
+        buttonPanel.add(viewButton);
     
         JButton searchButton = new JButton("Search Opponent Fixture");
         searchButton.setFont(buttonFont);
         searchButton.setBackground(Color.decode("#5A001F")); // Dark Red
         searchButton.setForeground(Color.decode("#FFD700")); // Gold text
         searchButton.setOpaque(true);
-        searchButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2)); // Black border
-        panel.add(searchButton);
+        searchButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2));
+        buttonPanel.add(searchButton);
     
         JButton exitButton = new JButton("Exit");
         exitButton.setFont(buttonFont);
         exitButton.setBackground(Color.decode("#5A001F")); // Dark Red
         exitButton.setForeground(Color.decode("#FFD700")); // Gold text
         exitButton.setOpaque(true);
-        exitButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2)); // Black border
-        panel.add(exitButton);
-
-        //action listener
+        exitButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2));
+        buttonPanel.add(exitButton);
+    
+        panel.add(buttonPanel, BorderLayout.CENTER); // Add button panel to the center
+    
+        // Next Fixture Label (BOTTOM OF THE SCREEN (SOUTH))
+        JLabel nextFixtureLabel = new JLabel();
+        nextFixtureLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        nextFixtureLabel.setForeground(Color.decode("#FFD700")); // Gold text
+        nextFixtureLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    
+        Fixture nextFixture = getNextFixture();
+        if (nextFixture != null) {
+            nextFixtureLabel.setText("Next Fixture is: " + nextFixture);
+        } else {
+            nextFixtureLabel.setText("No upcoming Fixtures");
+        }
+        nextFixtureLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0)); // Add spacing
+        panel.add(nextFixtureLabel, BorderLayout.SOUTH); // Add label to the bottom
+    
+        // Action Listeners
         exitButton.addActionListener(e -> System.exit(0));
-        
+    
         viewButton.addActionListener(e -> {
             JFrame viewFrame = new JFrame("All Fixtures");
-            viewFrame.setSize(600,400);
+            viewFrame.setSize(600, 400);
             viewFrame.setLocationRelativeTo(null);
-
+    
             JTextArea textArea = new JTextArea();
-            for (Fixture game : schedule){
+            for (Fixture game : schedule) {
                 textArea.append(game + "\n");
             }
-            viewFrame.add(new JScrollPane(textArea)); // to be able to scroll
+            viewFrame.add(new JScrollPane(textArea)); // Add scrolling
             viewFrame.setVisible(true);
-        }); 
-
+        });
+    
         searchButton.addActionListener(e -> {
             String opponent = JOptionPane.showInputDialog(frame, "Enter opponent to search:");
-            if(opponent != null && !opponent.trim().isEmpty()){
+            if (opponent != null && !opponent.trim().isEmpty()) {
                 searchOpponent(schedule, opponent);
             } else {
                 JOptionPane.showMessageDialog(frame, "Please enter a valid opponent name.");
             }
         });
-        
-        
-
-        //add the componnets to the panel
-        panel.add(titleLabel);
-        panel.add(viewButton);
-        panel.add(searchButton);
-        panel.add(exitButton);
-
-        //add the panel to the frame
+    
+        // Add main panel to the frame
         frame.add(panel);
-
-        //make the frame visible
         frame.setVisible(true);
+    }    
 
+    public static Fixture getNextFixture(){
+        LocalDate today = LocalDate.now();
+
+        for (Fixture game : schedule){
+            if(game.date.isAfter(today)){
+                return game;
+            }
+        }
+        return null;
     }
 }
