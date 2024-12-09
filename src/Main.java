@@ -62,31 +62,60 @@ public class Main {
     }
 
 
-    public static void launchGUI(){
+    public static void launchGUI(){    
         //Main Window
         JFrame frame = new JFrame("Arsenal Fixture Widget");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(500,500);
         frame.setLocationRelativeTo(null);
 
-        //Create a panel to hold components
-        JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(4, 1)); //panel som består av 4 rader og 1 kollon
-
-        //add components
-        JLabel titleLabel = new JLabel("Arsenal Fixture Widget", SwingConstants.CENTER);
-        JButton viewButton = new JButton("View All Fixtures");
-        JButton searchButton = new JButton("Search Opponent Fixture");
-        JButton exitButton = new JButton("Exit");
-
         
+    
+        JPanel panel = new JPanel();
+        panel.setBackground(Color.decode("#800020")); // Burgundy background
+        panel.setLayout(new GridLayout(4, 1, 0, 20)); // Add vertical spacing
+
+    
+    
+        JLabel titleLabel = new JLabel("Arsenal Fixtures", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Serif", Font.BOLD, 40)); // Bold and large font
+        titleLabel.setForeground(Color.decode("#FFD700")); // Gold title text
+        titleLabel.setHorizontalTextPosition(SwingConstants.CENTER); // Center text below the badge
+        titleLabel.setVerticalTextPosition(SwingConstants.BOTTOM); // Position badge above the text
+        panel.add(titleLabel);
+    
+        Font buttonFont = new Font("Arial", Font.PLAIN, 16);
+    
+        JButton viewButton = new JButton("View All Fixtures");
+        viewButton.setFont(buttonFont);
+        viewButton.setBackground(Color.decode("#5A001F")); // Dark Red
+        viewButton.setForeground(Color.decode("#FFD700")); // Gold text
+        viewButton.setOpaque(true);
+        viewButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2)); // Black border
+        panel.add(viewButton);
+    
+        JButton searchButton = new JButton("Search Opponent Fixture");
+        searchButton.setFont(buttonFont);
+        searchButton.setBackground(Color.decode("#5A001F")); // Dark Red
+        searchButton.setForeground(Color.decode("#FFD700")); // Gold text
+        searchButton.setOpaque(true);
+        searchButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2)); // Black border
+        panel.add(searchButton);
+    
+        JButton exitButton = new JButton("Exit");
+        exitButton.setFont(buttonFont);
+        exitButton.setBackground(Color.decode("#5A001F")); // Dark Red
+        exitButton.setForeground(Color.decode("#FFD700")); // Gold text
+        exitButton.setOpaque(true);
+        exitButton.setBorder(BorderFactory.createLineBorder(Color.decode("#FFD700"), 2)); // Black border
+        panel.add(exitButton);
 
         //action listener
         exitButton.addActionListener(e -> System.exit(0));
         
         viewButton.addActionListener(e -> {
             JFrame viewFrame = new JFrame("All Fixtures");
-            viewFrame.setSize(500,400);
+            viewFrame.setSize(600,400);
             viewFrame.setLocationRelativeTo(null);
 
             JTextArea textArea = new JTextArea();
@@ -105,6 +134,7 @@ public class Main {
                 JOptionPane.showMessageDialog(frame, "Please enter a valid opponent name.");
             }
         });
+        
         
 
         //add the componnets to the panel
