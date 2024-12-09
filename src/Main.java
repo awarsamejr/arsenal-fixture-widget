@@ -68,14 +68,16 @@ public class Main {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(500,500);
         frame.setLocationRelativeTo(null);
-
-        
+    
+        //app icon
+        ImageIcon appIcon = new ImageIcon("arsenal-fixture-widget/arsenal_cannon.png"); // Replace with your icon file
+        Image scaledImage = appIcon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH); // Resize to 32x32
+        ImageIcon scaledIcon = new ImageIcon(scaledImage);
+        frame.setIconImage(scaledIcon.getImage());
     
         JPanel panel = new JPanel();
         panel.setBackground(Color.decode("#800020")); // Burgundy background
-        panel.setLayout(new GridLayout(4, 1, 0, 20)); // Add vertical spacing
-
-    
+        panel.setLayout(new GridLayout(4, 1, 0, 20)); // Vertical layout
     
         JLabel titleLabel = new JLabel("Arsenal Fixtures", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Serif", Font.BOLD, 40)); // Bold and large font
