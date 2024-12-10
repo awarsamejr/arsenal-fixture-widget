@@ -4,7 +4,7 @@ import java.io.*;
 import javax.swing.*;
 import java.awt.*;
 
-public class Main {
+public class GUIMain {
     static ArrayList<Fixture> schedule = new ArrayList<>();
     public static void main(String[] args) {
         System.out.println("Welcome to the Arsenal Fixture Widget!");

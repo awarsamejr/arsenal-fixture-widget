@@ -7,7 +7,7 @@ import java.net.*;
 import org.json.JSONObject;
 import org.json.JSONArray;
 
-public class Main {
+public class APIMain {
     static ArrayList<Fixture> schedule = new ArrayList<>();
     public static void main(String[] args) {
         System.out.println("Welcome to the Arsenal Fixture Widget!");
