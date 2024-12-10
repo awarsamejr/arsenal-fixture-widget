@@ -3,3 +3,4 @@
 *.log         # Ignore log files
 .idea/        # Ignore IntelliJ IDEA project settings
 *.iml         # Ignore IntelliJ module files
+apikey.txt

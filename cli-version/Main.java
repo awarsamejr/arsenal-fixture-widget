@@ -28,8 +28,9 @@ public class Main {
                 String team = biter[1];
                 String location = biter[2];
                 String competition = biter[3];
+                String time = biter[4];
 
-                Fixture fixture = new Fixture(date, team, location, competition);
+                Fixture fixture = new Fixture(date, team, location, competition, time);
                 schedule.add(fixture);
             }
 
