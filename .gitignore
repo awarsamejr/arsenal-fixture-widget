@@ -3,4 +3,7 @@
 *.log         # Ignore log files
 .idea/        # Ignore IntelliJ IDEA project settings
 *.iml         # Ignore IntelliJ module files
-api_key.txt
+api_key.txt   #user must use his own api key
+*.exe         # ignore personal generated program  
+*.jar         #user can build these there  selves  
+MANIFEST.MF

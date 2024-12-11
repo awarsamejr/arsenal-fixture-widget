@@ -45,7 +45,11 @@ public class APIMain {
         
         frame.setSize(650, 200);
         frame.setLocation((Toolkit.getDefaultToolkit().getScreenSize().width - frame.getWidth()) / 2, 0);
-        frame.setUndecorated(true); //removes the title bar  
+        frame.setUndecorated(true); //removes the title bar 
+        
+        // Set Application Icon
+        ImageIcon appIcon = new ImageIcon("arsenal_cannon.png"); // Path to your icon file
+        frame.setIconImage(appIcon.getImage()); // Set the icon to the JFrame
     
         // Main Panel with BorderLayout
         JPanel panel = new JPanel(new BorderLayout());
