@@ -1,0 +1,21 @@
+{
+    "workbench.colorTheme": "Default Dark+",
+    "java.compile.nullAnalysis.nonnull": [
+        "javax.annotation.Nonnull",
+        "org.eclipse.jdt.annotation.NonNull",
+        "org.springframework.lang.NonNull"
+    ],
+    "security.workspace.trust.untrustedFiles": "open",
+    "editor.acceptSuggestionOnCommitCharacter": false,
+    "editor.acceptSuggestionOnEnter": "off",
+    "editor.inlineSuggest.enabled": false,
+    "java.completion.enabled": false,
+    "redhat.telemetry.enabled": true,
+    "files.autoSave": "afterDelay",
+    "explorer.confirmDelete": false,
+    "git.openRepositoryInParentFolders": "never",
+    "java.project.referencedLibraries": [
+        "lib/**/*.jar"
+    ]
+
+}

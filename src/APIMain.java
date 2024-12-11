@@ -1,6 +1,5 @@
 import java.time.*;
 import java.util.*;
-import java.util.Timer;
 import java.io.*;
 import javax.swing.*;
 import java.awt.*;
@@ -58,26 +57,49 @@ public class APIMain {
         titleLabel.setForeground(Color.decode("#FFD700")); // Gold title text
         panel.add(titleLabel, BorderLayout.NORTH); // Add title to the top
 
-         // Next Fixture Label
-         JLabel nextFixtureLabel = new JLabel();
-         nextFixtureLabel.setFont(new Font("Arial", Font.BOLD, 12));
-         nextFixtureLabel.setForeground(Color.decode("#FFD700")); // Gold text
-         nextFixtureLabel.setHorizontalAlignment(SwingConstants.CENTER);
-     
-         Fixture nextFixture = getNextFixture();
-         if (nextFixture != null) {
-             nextFixtureLabel.setText("Next Fixture is: " + nextFixture);
-         } else {
-             nextFixtureLabel.setText("No upcoming Fixtures");
-         }
-         
-         panel.add(nextFixtureLabel, BorderLayout.CENTER); // Add label to the center
+       // Create a nested panel to hold today's and next fixture labels
+        JPanel fixturesPanel = new JPanel(new GridLayout(2, 1));
+        fixturesPanel.setBackground(Color.decode("#800020")); // Match main panel's background
+
+        // Today's fixture label
+        JLabel todaysFixtureLabel = new JLabel();
+        todaysFixtureLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        todaysFixtureLabel.setForeground(Color.decode("#FFD700")); // Gold text
+        todaysFixtureLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        Fixture todaysFixture = getTodaysFixture();
+        if (todaysFixture != null) {
+            todaysFixtureLabel.setText("Today's Fixture is: " + todaysFixture);
+        } else {
+            todaysFixtureLabel.setText("No fixtures scheduled for today.");
+        }
+
+        // Next fixture label
+        JLabel nextFixtureLabel = new JLabel();
+        nextFixtureLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        nextFixtureLabel.setForeground(Color.decode("#FFD700")); // Gold text
+        nextFixtureLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        Fixture nextFixture = getNextFixture();
+        if (nextFixture != null) {
+            nextFixtureLabel.setText("Next Fixture is: " + nextFixture);
+        } else {
+            nextFixtureLabel.setText("No upcoming fixtures.");
+        }
+
+        // Add labels to the nested panel
+        fixturesPanel.add(todaysFixtureLabel);
+        fixturesPanel.add(nextFixtureLabel);
+
+        // Add the nested panel to the main panel
+        panel.add(fixturesPanel, BorderLayout.CENTER); // Adjust placement as needed
+
     
         // Button Panel (CENTER)
         JPanel buttonPanel = new JPanel(new GridLayout(3, 1, 0, 10));
         buttonPanel.setBackground(Color.decode("#800020")); // Match background
     
-        Font buttonFont = new Font("Arial", Font.PLAIN, 12);
+        Font buttonFont = new Font("Arial", Font.PLAIN, 18);
     
         JButton refreshButton = new JButton("Refresh");
         refreshButton.setFont(buttonFont);
@@ -136,6 +158,17 @@ public class APIMain {
         
     }    
 
+    public static Fixture getTodaysFixture() {
+        LocalDate today = LocalDate.now(); // Get the current date
+    
+        for (Fixture game : schedule) {
+            if (game.date.equals(today)) { // Compare fixture date with today
+                return game;
+            }
+        }
+        return null; // No fixtures for today
+    }
+
     public static Fixture getNextFixture(){
         LocalDate today = LocalDate.now();
 
@@ -146,7 +179,7 @@ public class APIMain {
         }
         return null;
     }
-
+    
     public static void getFixturesFromApi(){
         //this fetches Arsenals fixtures from the API database
         String apiURL = "https://api.football-data.org/v4/teams/57/matches?status=SCHEDULED";
@@ -154,7 +187,8 @@ public class APIMain {
 
         try {
             //set up the connection with the url
-            URL url = new URL(apiURL);
+            URI uri = new URI(apiURL);
+            URL url = uri.toURL();
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
             connection.setRequestMethod("GET"); //fetches the data
@@ -180,6 +214,7 @@ public class APIMain {
             }
 
         }
+    
     public static String getApiKey() {
         try (BufferedReader br = new BufferedReader(new FileReader("api_key.txt"))) {
             return br.readLine();
@@ -188,6 +223,7 @@ public class APIMain {
             return null;
         }
     }
+    
     public static void parseFixturesJSON(String jsonResponse) {
         try {
             JSONObject jsonObject = new JSONObject(jsonResponse);
