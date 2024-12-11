@@ -5,5 +5,5 @@
 *.iml         # Ignore IntelliJ module files
 api_key.txt   #user must use his own api key
 *.exe         # ignore personal generated program  
-*.jar         #user can build these there  selves  
+arsenal-widget.jar         #user can build these there  selves  
 MANIFEST.MF
