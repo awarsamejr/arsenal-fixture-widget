@@ -4,7 +4,7 @@ The Arsenal Fixture Widget is a desktop app 🖥️ that shows Arsenal's upcomin
 
 ## Why This Program Was Created ❓
 
-As an Arsenal fan ❤️⚪️🔴, staying updated with the team's fixtures can be both exciting 🎉 and challenging 😅. This widget provides an easy and elegant way to track Arsenal's matches 🏟️ without relying on websites 🌍 or apps 📱. The aim was to build a widget that delivers real-time ⚡ updates, lets you search by opponents, and refreshes data seamlessly.
+As an Arsenal fan ❤️⚪️🔴, staying updated with the team's fixtures can be both exciting 🎉 and challenging 😅. This widget provides an easy and elegant way to track Arsenal's matches 🏟️ without relying on websites 🌍 or apps 📱. The aim was to build my own "widget" that delivers real-time fixture updates, lets you search by opponents, and refreshes data seamlessly.
 
 ## Features ✨
 
@@ -15,10 +15,6 @@ As an Arsenal fan ❤️⚪️🔴, staying updated with the team's fixtures can
 - **Always-On-Top Widget** 📌: Stay on top for quick access.
 - **Refresh Data** 🔄: Fetch the latest updates anytime.
 
-## Requirements 🛠️
-
-- **Java JDK 11** or later ☕
-- Internet connection for API calls 🌐
 
 ## Setup Instructions 📖
 
@@ -109,5 +105,5 @@ Fork, tweak, and submit PRs 📬! Everyone is welcome 🌍.
 
 ## Acknowledgments 🙌
 
-- [Football Data API](https://www.football-data.org/) for live data 📊.
+- [Football-data-org](https://www.football-data.org/) for live data 📊.
 - Arsenal FC ❤️⚪️🔴 for being an inspiration and the best team!
