@@ -1,13 +1,15 @@
 // Sample data for previewing the UI in a browser (`npm run dev`).
-// Add ?live, ?nokey or ?error to the URL to see those states.
+// Add ?live, ?nokey, ?nostats or ?error to the URL to see those states.
 
-import type { Fixture, MatchDetails, MatchStats, Settings, Snapshot, StatsResult, TableRow, TeamInfo } from "./types";
+import type { Fixture, MatchDetails, MatchStats, Settings, Snapshot, StatsResult, TableRow, TeamChoice, TeamInfo } from "./types";
 
 const params = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
 const crest = (id: number) => `https://crests.football-data.org/${id}.png`;
 const team = (id: number, name: string, shortName: string): TeamInfo => ({ name, shortName, crest: crest(id) });
 
 const arsenal = team(57, "Arsenal FC", "Arsenal");
+/** The team being followed; changes when a new one is saved in Settings */
+let current: TeamInfo = arsenal;
 const teams = {
   everton: team(62, "Everton FC", "Everton"),
   liverpool: team(64, "Liverpool FC", "Liverpool"),
@@ -39,12 +41,13 @@ function fixture(offsetMs: number, opponent: TeamInfo, home: boolean, comp: type
     status: score ? "finished" : "scheduled",
     ...comp,
     home,
-    arsenal,
-    opponent,
-    arsenalGoals: a,
+    team: current,
+    // Never play yourself: if the followed team is in the sample list, Arsenal stands in
+    opponent: opponent.name === current.name ? arsenal : opponent,
+    teamGoals: a,
     opponentGoals: o,
     outcome: score ? (score[0] > score[1] ? "win" : score[0] < score[1] ? "loss" : "draw") : null,
-    halfTimeArsenal: score ? Math.min(score[0], 1) : null,
+    halfTimeTeam: score ? Math.min(score[0], 1) : null,
     halfTimeOpponent: score ? Math.min(score[1], 1) : null,
     matchday: comp.competitionCode === "PL" ? 8 : 3,
     stage: comp.competitionCode === "PL" ? "REGULAR_SEASON" : "LEAGUE_STAGE",
@@ -69,7 +72,7 @@ function buildFixtures(): Fixture[] {
   ];
   if (params.has("live")) {
     const i = list.findIndex((f) => f.status === "scheduled");
-    list[i] = { ...list[i], kickoff: new Date(Date.now() - 52 * 60_000).toISOString(), status: "live", arsenalGoals: 2, opponentGoals: 1 };
+    list[i] = { ...list[i], kickoff: new Date(Date.now() - 52 * 60_000).toISOString(), status: "live", teamGoals: 2, opponentGoals: 1 };
   }
   return list;
 }
@@ -86,7 +89,10 @@ const tableTeams: [TeamInfo, number, number][] = [
 ];
 
 function buildTable(): TableRow[] {
-  return tableTeams.map(([t, points, gd], i) => ({
+  const rows = tableTeams.some(([t]) => t.name === current.name)
+    ? tableTeams
+    : tableTeams.map(([t, p, gd]): [TeamInfo, number, number] => [t === arsenal ? current : t, p, gd]);
+  return rows.map(([t, points, gd], i) => ({
     position: i + 1,
     team: t,
     played: 8,
@@ -95,7 +101,7 @@ function buildTable(): TableRow[] {
     lost: 8 - Math.floor(points / 3) - (points % 3),
     goalDifference: gd,
     points,
-    isArsenal: t === arsenal,
+    isTeam: t.name === current.name,
   }));
 }
 
@@ -108,15 +114,47 @@ let snapshot: Snapshot = {
   refreshing: false,
 };
 
+const choice = (id: number, name: string, shortName: string, venue: string, colors: string): TeamChoice => ({
+  id, name, shortName, crest: crest(id), league: "PL", venue, colors,
+});
+
+const plTeams: TeamChoice[] = [
+  choice(57, "Arsenal FC", "Arsenal", "Emirates Stadium", "Red / White"),
+  choice(58, "Aston Villa FC", "Aston Villa", "Villa Park", "Claret / Sky Blue"),
+  choice(61, "Chelsea FC", "Chelsea", "Stamford Bridge", "Royal Blue / White"),
+  choice(62, "Everton FC", "Everton", "Goodison Park", "Blue / White"),
+  choice(63, "Fulham FC", "Fulham", "Craven Cottage", "White / Black"),
+  choice(64, "Liverpool FC", "Liverpool", "Anfield", "Red / White"),
+  choice(65, "Manchester City FC", "Man City", "Etihad Stadium", "Sky Blue / White"),
+  choice(67, "Newcastle United FC", "Newcastle", "St. James' Park", "Black / White"),
+  choice(73, "Tottenham Hotspur FC", "Tottenham", "Tottenham Hotspur Stadium", "Navy Blue / White"),
+];
+
 let settings: Settings = {
+  team: plTeams[0],
   apiKey: "",
   statsApiKey: "",
   reminderMinutes: [1440, 60, 0],
   resultNotifications: true,
+  goalAlerts: true,
   refreshMinutes: 15,
   alwaysOnTop: true,
+  miniMode: false,
   streamLinks: [],
 };
+
+export const listLeagues = async (): Promise<[string, string][]> => [
+  ["PL", "Premier League"],
+  ["BL1", "Bundesliga"],
+  ["PD", "La Liga"],
+];
+
+export async function listTeams(league: string): Promise<TeamChoice[]> {
+  await new Promise((r) => setTimeout(r, 300));
+  if (league === "BL1") return [{ ...choice(5, "FC Bayern München", "Bayern", "Allianz Arena", "Red / White"), league }];
+  if (league === "PD") return [{ ...choice(86, "Real Madrid CF", "Real Madrid", "Santiago Bernabéu", "White / Purple"), league }];
+  return plTeams;
+}
 
 const snapshotListeners = new Set<(s: Snapshot) => void>();
 const settingsListeners = new Set<(s: Settings) => void>();
@@ -157,31 +195,31 @@ export async function getMatchStats(fixtureId: number): Promise<StatsResult> {
   const stats: MatchStats = {
     venue: f.home ? "Emirates Stadium, London" : `${f.opponent.shortName} Stadium`,
     weather: "Cloudy, 12°C",
-    prediction: { arsenalWin: 52.4, draw: 25.1, opponentWin: 22.5, live: played },
+    prediction: { teamWin: 52.4, draw: 25.1, opponentWin: 22.5, live: played },
     events: played
       ? [
-          { minute: "12", kind: "goal", arsenal: true, player: "Bukayo Saka", detail: "Martin Ødegaard" },
-          { minute: "34", kind: "yellowCard", arsenal: false, player: "Opposition No. 6", detail: null },
-          { minute: "45+2", kind: "penaltyGoal", arsenal: false, player: "Opposition No. 9", detail: null },
-          { minute: "61", kind: "substitution", arsenal: true, player: "Kai Havertz", detail: "Viktor Gyökeres" },
-          { minute: "78", kind: "goal", arsenal: true, player: "Declan Rice", detail: "Viktor Gyökeres" },
-          { minute: "88", kind: "redCard", arsenal: false, player: "Opposition No. 4", detail: null },
+          { minute: "12", kind: "goal", team: true, player: "Bukayo Saka", detail: "Martin Ødegaard" },
+          { minute: "34", kind: "yellowCard", team: false, player: "Opposition No. 6", detail: null },
+          { minute: "45+2", kind: "penaltyGoal", team: false, player: "Opposition No. 9", detail: null },
+          { minute: "61", kind: "substitution", team: true, player: "Kai Havertz", detail: "Viktor Gyökeres" },
+          { minute: "78", kind: "goal", team: true, player: "Declan Rice", detail: "Viktor Gyökeres" },
+          { minute: "88", kind: "redCard", team: false, player: "Opposition No. 4", detail: null },
         ]
       : [],
     stats: played
       ? [
-          { label: "Possession", arsenal: 0.61, opponent: 0.39, format: "percent" },
-          { label: "Expected goals (xG)", arsenal: 2.14, opponent: 0.87, format: "decimal" },
-          { label: "Shots", arsenal: 17, opponent: 8, format: "count" },
-          { label: "Shots on target", arsenal: 7, opponent: 3, format: "count" },
-          { label: "Pass accuracy", arsenal: 0.89, opponent: 0.78, format: "percent" },
-          { label: "Corners", arsenal: 8, opponent: 2, format: "count" },
-          { label: "Fouls", arsenal: 9, opponent: 14, format: "count" },
+          { label: "Possession", team: 0.61, opponent: 0.39, format: "percent" },
+          { label: "Expected goals (xG)", team: 2.14, opponent: 0.87, format: "decimal" },
+          { label: "Shots", team: 17, opponent: 8, format: "count" },
+          { label: "Shots on target", team: 7, opponent: 3, format: "count" },
+          { label: "Pass accuracy", team: 0.89, opponent: 0.78, format: "percent" },
+          { label: "Corners", team: 8, opponent: 2, format: "count" },
+          { label: "Fouls", team: 9, opponent: 14, format: "count" },
         ]
       : [],
     lineups: played
       ? {
-          arsenal: {
+          team: {
             formation: "4-3-3",
             rows: [row("David Raya"), row("R. Calafiori", "Gabriel", "W. Saliba", "J. Timber"), row("M. Ødegaard", "D. Rice", "M. Merino"), row("G. Martinelli", "K. Havertz", "B. Saka")],
             substitutes: row("V. Gyökeres", "E. Eze", "M. Lewis-Skelly"),
@@ -201,6 +239,11 @@ export const getSnapshot = async () => snapshot;
 export const getSettings = async () => settings;
 
 export async function saveSettings(next: Settings) {
+  if (next.team.id !== settings.team.id) {
+    current = { name: next.team.name, shortName: next.team.shortName, crest: next.team.crest };
+    snapshot = { ...snapshot, fixtures: buildFixtures(), table: buildTable() };
+    snapshotListeners.forEach((l) => l(snapshot));
+  }
   settings = next;
   settingsListeners.forEach((l) => l(settings));
   return settings;

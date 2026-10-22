@@ -1,23 +1,28 @@
 import { hideWindow, minimizeWindow } from "../lib/api";
+import type { TeamChoice } from "../lib/types";
+import { Crest } from "./Crest";
 import { CloseIcon, MinusIcon, PinIcon } from "./icons";
 
 interface Props {
+  team: TeamChoice;
   pinned: boolean;
   onTogglePin: () => void;
 }
 
 /** Custom draggable title bar (the window has no Windows frame). */
-export function TitleBar({ pinned, onTogglePin }: Props) {
+export function TitleBar({ team, pinned, onTogglePin }: Props) {
   const button = "grid h-8 w-8 place-items-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-white";
   return (
     <header data-tauri-drag-region className="flex h-11 shrink-0 items-center gap-2 pl-3 pr-1.5">
-      <img src="/logo.svg" alt="" className="pointer-events-none h-6 w-6" draggable={false} />
+      <span className="pointer-events-none" title={team.name}>
+        <Crest team={team} size={22} />
+      </span>
       <h1 data-tauri-drag-region className="font-display text-[15px] font-semibold tracking-tight">
         Matchnight
       </h1>
       <div data-tauri-drag-region className="flex-1 self-stretch" />
       <button
-        className={`${button} ${pinned ? "text-gunner hover:text-gunner" : ""}`}
+        className={`${button} ${pinned ? "text-accent hover:text-accent" : ""}`}
         onClick={onTogglePin}
         title={pinned ? "Stop keeping on top" : "Keep on top of other windows"}
         aria-pressed={pinned}
@@ -28,7 +33,7 @@ export function TitleBar({ pinned, onTogglePin }: Props) {
         <MinusIcon size={16} />
       </button>
       <button
-        className={`${button} hover:!bg-gunner hover:!text-white`}
+        className={`${button} hover:!bg-accent hover:!text-white`}
         onClick={() => hideWindow()}
         title="Hide to tray (quit from the tray icon)"
       >

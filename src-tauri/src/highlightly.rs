@@ -10,8 +10,6 @@ use serde::{Deserialize, Serialize};
 use crate::api::ApiError;
 
 const BASE_URL: &str = "https://soccer.highlightly.net";
-/// Arsenal's id in Highlightly (football-data uses 57)
-pub const ARSENAL_ID: u64 = 36526;
 
 // ---------- Raw responses (only the fields we use) ----------
 
@@ -126,7 +124,7 @@ struct RawPlayer {
     number: Option<u32>,
 }
 
-// ---------- What the UI receives (from Arsenal's point of view) ----------
+// ---------- What the UI receives (from your team's point of view) ----------
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -176,8 +174,8 @@ pub struct MatchEvent {
     /// As shown, e.g. "45+2"
     pub minute: String,
     pub kind: EventKind,
-    /// True if the event belongs to Arsenal (the team listed by the API)
-    pub arsenal: bool,
+    /// True if the event belongs to your team (the team listed by the API)
+    pub team: bool,
     pub player: String,
     /// Assist for goals, player coming on for subs
     pub detail: Option<String>,
@@ -187,7 +185,7 @@ pub struct MatchEvent {
 #[serde(rename_all = "camelCase")]
 pub struct StatLine {
     pub label: String,
-    pub arsenal: f64,
+    pub team: f64,
     pub opponent: f64,
     /// "percent" (0–1 shown as %), "decimal" (xG) or "count"
     pub format: String,
@@ -212,15 +210,15 @@ pub struct TeamLineup {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Lineups {
-    pub arsenal: TeamLineup,
+    pub team: TeamLineup,
     pub opponent: TeamLineup,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Prediction {
-    /// Percentages, from Arsenal's point of view
-    pub arsenal_win: f64,
+    /// Percentages, from your team's point of view
+    pub team_win: f64,
     pub draw: f64,
     pub opponent_win: f64,
     /// True if made during the match rather than before it
@@ -302,24 +300,41 @@ impl StatsClient {
         }
     }
 
-    /// Finds Highlightly's id for an Arsenal match by date and home/away.
-    pub async fn find_match_id(&self, key: &str, kickoff: DateTime<Utc>, arsenal_home: bool) -> Result<Counted<Option<u64>>, ApiError> {
-        let side = if arsenal_home { "homeTeamId" } else { "awayTeamId" };
-        let path = format!("/matches?{side}={ARSENAL_ID}&date={}&timezone=UTC", kickoff.format("%Y-%m-%d"));
+    /// Possible Highlightly ids for a football-data team, best guess first.
+    /// Tries the full name without "FC" etc., then the short name.
+    pub async fn find_team_candidates(&self, key: &str, name: &str, short_name: &str) -> Result<Counted<Vec<u64>>, ApiError> {
+        let names = [clean_team_name(name), short_name.to_string()];
+        let mut remaining = None;
+        for query in names.iter().filter(|q| !q.is_empty()) {
+            let path = format!("/teams?name={}", urlencode(query));
+            let res = self.get(&path, key).await?;
+            remaining = res.remaining.or(remaining);
+            let ids = rank_team_candidates(&res.value, &names)?;
+            if !ids.is_empty() {
+                return Ok(Counted { value: ids, remaining });
+            }
+        }
+        Ok(Counted { value: Vec::new(), remaining })
+    }
+
+    /// Finds Highlightly's id for one of the team's matches by date and home/away.
+    pub async fn find_match_id(&self, key: &str, team_id: u64, kickoff: DateTime<Utc>, team_home: bool) -> Result<Counted<Option<u64>>, ApiError> {
+        let side = if team_home { "homeTeamId" } else { "awayTeamId" };
+        let path = format!("/matches?{side}={team_id}&date={}&timezone=UTC", kickoff.format("%Y-%m-%d"));
         let res = self.get(&path, key).await?;
         let id = parse_match_id(&res.value, kickoff)?;
         Ok(Counted { value: id, remaining: res.remaining })
     }
 
     /// Events, stats, venue and predictions; line-ups too if asked (one extra request).
-    pub async fn fetch_stats(&self, key: &str, match_id: u64, with_lineups: bool) -> Result<Counted<MatchStats>, ApiError> {
+    pub async fn fetch_stats(&self, key: &str, team_id: u64, match_id: u64, with_lineups: bool) -> Result<Counted<MatchStats>, ApiError> {
         let res = self.get(&format!("/matches/{match_id}"), key).await?;
-        let mut stats = parse_match(&res.value)?;
+        let mut stats = parse_match(&res.value, team_id)?;
         let mut remaining = res.remaining;
         if with_lineups {
             // Line-ups are optional; a failure here shouldn't hide the rest
             if let Ok(lineup_res) = self.get(&format!("/lineups/{match_id}"), key).await {
-                stats.lineups = parse_lineups(&lineup_res.value).ok().flatten();
+                stats.lineups = parse_lineups(&lineup_res.value, team_id).ok().flatten();
                 remaining = lineup_res.remaining.or(remaining);
             }
         }
@@ -333,17 +348,61 @@ fn bad(what: &str, e: impl std::fmt::Display) -> ApiError {
     ApiError::Unexpected(format!("bad {what}: {e}"))
 }
 
+#[derive(Deserialize)]
+struct TeamList {
+    data: Vec<RawTeamSummary>,
+}
+
+#[derive(Deserialize)]
+struct RawTeamSummary {
+    id: u64,
+    name: String,
+    #[serde(rename = "type")]
+    kind: Option<String>,
+}
+
+/// "FC Bayern München" → "Bayern München", "Arsenal FC" → "Arsenal"
+pub fn clean_team_name(name: &str) -> String {
+    const NOISE: &[&str] = &["FC", "AFC", "CF", "SC", "SV", "AC", "SSC", "1.", "&"];
+    name.split_whitespace().filter(|w| !NOISE.contains(w)).collect::<Vec<_>>().join(" ")
+}
+
+/// Clubs (not national teams) whose name matches, exact matches first.
+pub fn rank_team_candidates(body: &str, names: &[String]) -> Result<Vec<u64>, ApiError> {
+    let list: TeamList = serde_json::from_str(body).map_err(|e| bad("team list", e))?;
+    let wanted: Vec<String> = names.iter().map(|n| n.to_lowercase()).filter(|n| !n.is_empty()).collect();
+    let clubs = || list.data.iter().filter(|t| t.kind.as_deref() != Some("national"));
+    let exact = clubs().filter(|t| wanted.contains(&t.name.to_lowercase()));
+    let partial = clubs().filter(|t| {
+        let n = t.name.to_lowercase();
+        !wanted.contains(&n) && wanted.iter().any(|w| n.contains(w.as_str()) || w.contains(n.as_str()))
+    });
+    let mut ids: Vec<u64> = exact.chain(partial).map(|t| t.id).collect();
+    ids.dedup();
+    ids.truncate(3); // only ever try a few
+    Ok(ids)
+}
+
+fn urlencode(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}
+
 pub fn parse_match_id(body: &str, kickoff: DateTime<Utc>) -> Result<Option<u64>, ApiError> {
     let list: MatchList = serde_json::from_str(body).map_err(|e| bad("match list", e))?;
     // If there are somehow two on the same day, take the closest kick-off
     Ok(list.data.iter().min_by_key(|m| (m.date - kickoff).num_seconds().abs()).map(|m| m.id))
 }
 
-pub fn parse_match(body: &str) -> Result<MatchStats, ApiError> {
+pub fn parse_match(body: &str, team_id: u64) -> Result<MatchStats, ApiError> {
     // /matches/{id} returns a one-item list
     let mut list: Vec<RawMatch> = serde_json::from_str(body).map_err(|e| bad("match", e))?;
     let m = list.pop().ok_or_else(|| ApiError::Unexpected("match not found".into()))?;
-    let arsenal_home = m.home_team.id == ARSENAL_ID;
+    let team_home = m.home_team.id == team_id;
 
     let events = m
         .events
@@ -358,14 +417,14 @@ pub fn parse_match(body: &str) -> Result<MatchStats, ApiError> {
             Some(MatchEvent {
                 minute: e.time.clone().unwrap_or_default().trim_end_matches('\'').to_string(),
                 kind,
-                arsenal: e.team.id == ARSENAL_ID,
+                team: e.team.id == team_id,
                 player: fix_text(e.player.as_deref().unwrap_or("Unknown")).trim().to_string(),
                 detail: detail.map(|d| fix_text(&d).trim().to_string()),
             })
         })
         .collect();
 
-    let stats = stat_lines(&m.statistics);
+    let stats = stat_lines(&m.statistics, team_id);
 
     let venue = m.venue.and_then(|v| match (v.name, v.city) {
         (Some(n), Some(c)) => Some(format!("{}, {}", fix_text(&n), fix_text(&c))),
@@ -400,16 +459,16 @@ pub fn parse_match(body: &str) -> Result<MatchStats, ApiError> {
     let prediction = latest.and_then(|x| {
         let pct = |s: &str| s.trim_end_matches('%').parse::<f64>().ok();
         let (home, draw, away) = (pct(&x.probabilities.home)?, pct(&x.probabilities.draw)?, pct(&x.probabilities.away)?);
-        let (arsenal_win, opponent_win) = if arsenal_home { (home, away) } else { (away, home) };
-        Some(Prediction { arsenal_win, draw, opponent_win, live })
+        let (team_win, opponent_win) = if team_home { (home, away) } else { (away, home) };
+        Some(Prediction { team_win, draw, opponent_win, live })
     });
 
     Ok(MatchStats { events, stats, lineups: None, venue, weather, prediction })
 }
 
-fn stat_lines(teams: &[RawTeamStats]) -> Vec<StatLine> {
-    let find = |arsenal: bool, name: &str| -> Option<f64> {
-        let team = teams.iter().find(|t| (t.team.id == ARSENAL_ID) == arsenal)?;
+fn stat_lines(teams: &[RawTeamStats], team_id: u64) -> Vec<StatLine> {
+    let find = |ours: bool, name: &str| -> Option<f64> {
+        let team = teams.iter().find(|t| (t.team.id == team_id) == ours)?;
         let get = |n: &str| team.statistics.iter().find(|s| s.display_name.eq_ignore_ascii_case(n)).and_then(|s| s.value);
         match name {
             // Not given directly, so worked out from the parts
@@ -426,7 +485,7 @@ fn stat_lines(teams: &[RawTeamStats]) -> Vec<StatLine> {
         .filter_map(|&(name, label, format)| {
             Some(StatLine {
                 label: label.into(),
-                arsenal: find(true, name)?,
+                team: find(true, name)?,
                 opponent: find(false, name)?,
                 format: format.into(),
             })
@@ -434,7 +493,7 @@ fn stat_lines(teams: &[RawTeamStats]) -> Vec<StatLine> {
         .collect()
 }
 
-pub fn parse_lineups(body: &str) -> Result<Option<Lineups>, ApiError> {
+pub fn parse_lineups(body: &str, team_id: u64) -> Result<Option<Lineups>, ApiError> {
     let raw: RawLineups = serde_json::from_str(body).map_err(|e| bad("line-ups", e))?;
     let convert = |l: &RawLineup| TeamLineup {
         formation: l.formation.clone(),
@@ -445,7 +504,7 @@ pub fn parse_lineups(body: &str) -> Result<Option<Lineups>, ApiError> {
             .collect(),
         substitutes: l.substitutes.iter().map(player).collect(),
     };
-    let (ours, theirs) = if raw.home_team.id == ARSENAL_ID {
+    let (ours, theirs) = if raw.home_team.id == team_id {
         (&raw.home_team, &raw.away_team)
     } else {
         (&raw.away_team, &raw.home_team)
@@ -453,7 +512,7 @@ pub fn parse_lineups(body: &str) -> Result<Option<Lineups>, ApiError> {
     if ours.initial_lineup.is_empty() {
         return Ok(None); // not announced yet
     }
-    Ok(Some(Lineups { arsenal: convert(ours), opponent: convert(theirs) }))
+    Ok(Some(Lineups { team: convert(ours), opponent: convert(theirs) }))
 }
 
 fn player(p: &RawPlayer) -> LineupPlayer {
@@ -478,6 +537,31 @@ mod tests {
     const MATCH: &str = include_str!("../testdata/hl_match.json");
     const LINEUPS: &str = include_str!("../testdata/hl_lineups.json");
     const MATCHES: &str = include_str!("../testdata/hl_matches.json");
+    /// The saved data is Bayern v Arsenal; Arsenal's Highlightly id
+    const ARSENAL: u64 = 36526;
+    const BAYERN: u64 = 134391;
+
+    #[test]
+    fn reads_the_same_match_from_the_other_side() {
+        let ours = parse_match(MATCH, ARSENAL).unwrap();
+        let theirs = parse_match(MATCH, BAYERN).unwrap();
+        assert_eq!(ours.events.len(), theirs.events.len());
+        assert!(ours.events.iter().zip(&theirs.events).all(|(a, b)| a.team != b.team));
+        let (a, b) = (&ours.stats[0], &theirs.stats[0]);
+        assert_eq!((a.team, a.opponent), (b.opponent, b.team));
+        assert_eq!(parse_lineups(LINEUPS, BAYERN).unwrap().unwrap().team.rows[0][0].name, "M. Neuer");
+    }
+
+    #[test]
+    fn ranks_club_name_matches() {
+        let body = include_str!("../testdata/hl_teams.json");
+        let names = vec![clean_team_name("Arsenal FC"), "Arsenal".to_string()];
+        // Two clubs are called exactly "Arsenal"; the national team is skipped
+        assert_eq!(rank_team_candidates(body, &names).unwrap(), vec![36526, 8016353]);
+        assert_eq!(clean_team_name("FC Bayern München"), "Bayern München");
+        assert_eq!(clean_team_name("Brighton & Hove Albion FC"), "Brighton Hove Albion");
+        assert_eq!(urlencode("Bayern München"), "Bayern%20M%C3%BCnchen");
+    }
 
     #[test]
     fn finds_the_match_on_the_day() {
@@ -488,15 +572,15 @@ mod tests {
     }
 
     #[test]
-    fn reads_events_from_arsenals_side() {
-        let s = parse_match(MATCH).unwrap();
+    fn reads_events_from_the_teams_side() {
+        let s = parse_match(MATCH, ARSENAL).unwrap();
         let goals: Vec<_> = s.events.iter().filter(|e| matches!(e.kind, EventKind::Goal | EventKind::PenaltyGoal)).collect();
         assert_eq!(goals.len(), 4, "Eze, Davies, Kane (pen), Rice");
-        assert_eq!(goals.iter().filter(|g| g.arsenal).count(), 2);
+        assert_eq!(goals.iter().filter(|g| g.team).count(), 2);
 
         let eze = &goals[0];
         assert_eq!((eze.minute.as_str(), eze.player.as_str(), eze.detail.as_deref()), ("25", "Eberechi Eze", Some("Martin Odegaard")));
-        assert!(goals.iter().any(|g| g.kind == EventKind::PenaltyGoal && g.player == "Harry Kane" && !g.arsenal));
+        assert!(goals.iter().any(|g| g.kind == EventKind::PenaltyGoal && g.player == "Harry Kane" && !g.team));
 
         // The VAR confirmation duplicates Eze's goal, so it's dropped
         assert!(s.events.iter().all(|e| e.kind != EventKind::Var));
@@ -511,32 +595,32 @@ mod tests {
 
     #[test]
     fn builds_stat_lines_for_both_teams() {
-        let s = parse_match(MATCH).unwrap();
+        let s = parse_match(MATCH, ARSENAL).unwrap();
         let get = |label: &str| s.stats.iter().find(|l| l.label == label).unwrap();
         let possession = get("Possession");
-        assert_eq!((possession.arsenal, possession.opponent), (0.54, 0.46));
-        assert_eq!(get("Shots").arsenal, 14.0); // 5 on + 4 off + 5 blocked
-        let pass = get("Pass accuracy").arsenal;
+        assert_eq!((possession.team, possession.opponent), (0.54, 0.46));
+        assert_eq!(get("Shots").team, 14.0); // 5 on + 4 off + 5 blocked
+        let pass = get("Pass accuracy").team;
         assert!((pass - 436.0 / 502.0).abs() < 1e-9);
         assert_eq!(get("Expected goals (xG)").format, "decimal");
     }
 
     #[test]
     fn reads_venue_weather_and_prediction() {
-        let s = parse_match(MATCH).unwrap();
+        let s = parse_match(MATCH, ARSENAL).unwrap();
         assert_eq!(s.venue.as_deref(), Some("Allianz Arena, Munich"));
         assert_eq!(s.weather.as_deref(), Some("Rain, 9°C"));
         let p = s.prediction.unwrap();
         assert!(p.live);
-        assert!((p.arsenal_win + p.draw + p.opponent_win - 100.0).abs() < 0.5);
+        assert!((p.team_win + p.draw + p.opponent_win - 100.0).abs() < 0.5);
     }
 
     #[test]
-    fn reads_lineups_with_arsenal_first() {
-        let l = parse_lineups(LINEUPS).unwrap().unwrap();
-        assert_eq!(l.arsenal.formation.as_deref(), Some("4-3-3"));
-        assert_eq!(l.arsenal.rows[0][0].name, "David Raya");
-        assert_eq!(l.arsenal.rows.iter().map(Vec::len).sum::<usize>(), 11);
+    fn reads_lineups_with_the_team_first() {
+        let l = parse_lineups(LINEUPS, ARSENAL).unwrap().unwrap();
+        assert_eq!(l.team.formation.as_deref(), Some("4-3-3"));
+        assert_eq!(l.team.rows[0][0].name, "David Raya");
+        assert_eq!(l.team.rows.iter().map(Vec::len).sum::<usize>(), 11);
         assert_eq!(l.opponent.rows[0][0].name, "M. Neuer");
         assert!(l.opponent.substitutes.iter().any(|p| p.name == "L. Díaz"), "mojibake repaired");
     }

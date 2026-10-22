@@ -8,7 +8,7 @@ use chrono::{DateTime, Duration, Utc};
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::Notify;
 
-use crate::models::{Fixture, MatchDetails, Snapshot};
+use crate::models::{Fixture, MatchDetails, Snapshot, TeamChoice};
 use crate::scheduler::Notice;
 use crate::settings::{self, Cache, Settings};
 use crate::tray;
@@ -29,6 +29,8 @@ pub struct AppState {
     pub wake: Notify,
     /// Match details already loaded this session, to save API requests
     details: Mutex<HashMap<u64, (MatchDetails, DateTime<Utc>)>>,
+    /// Team lists per league for the picker, loaded this session
+    teams: Mutex<HashMap<String, Vec<TeamChoice>>>,
 }
 
 /// Head-to-head only changes when the two teams meet again
@@ -42,7 +44,30 @@ impl AppState {
             inner: Mutex::new(Inner { settings, cache, next_fetch: None, table_fetched_at: None }),
             wake: Notify::new(),
             details: Mutex::new(HashMap::new()),
+            teams: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub fn cached_teams(&self, league: &str) -> Option<Vec<TeamChoice>> {
+        self.teams.lock().unwrap_or_else(|p| p.into_inner()).get(league).cloned()
+    }
+
+    pub fn store_teams(&self, league: &str, teams: Vec<TeamChoice>) {
+        self.teams.lock().unwrap_or_else(|p| p.into_inner()).insert(league.to_string(), teams);
+    }
+
+    /// Clears data that belonged to the previous team and tells the UI.
+    pub fn reset_for_new_team<R: Runtime>(&self, app: &AppHandle<R>) {
+        self.details.lock().unwrap_or_else(|p| p.into_inner()).clear();
+        self.finish_refresh(app, |inner| {
+            let snap = &mut inner.cache.snapshot;
+            snap.fixtures.clear();
+            snap.table.clear();
+            snap.last_updated = None;
+            snap.error = None;
+            inner.table_fetched_at = None;
+            inner.cache.sent_notifications.clear();
+        });
     }
 
     pub fn cached_details(&self, fixture_id: u64) -> Option<MatchDetails> {

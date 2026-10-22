@@ -81,10 +81,11 @@ pub fn due_notices(fixtures: &[Fixture], now: DateTime<Utc>, settings: &Settings
                 let key = format!("{}:ft", f.id);
                 if now - f.kickoff < RESULT_MAX_AGE && !sent.contains(&key) {
                     if let Some(score) = f.score_line() {
+                        let us = &f.team.short_name;
                         let verdict = match f.outcome {
-                            Some(Outcome::Win) => "Arsenal win!",
-                            Some(Outcome::Draw) => "It's a draw",
-                            _ => "Arsenal lose",
+                            Some(Outcome::Win) => format!("{us} win!"),
+                            Some(Outcome::Draw) => "It's a draw".to_string(),
+                            _ => format!("{us} lose"),
                         };
                         notices.push(Notice {
                             key,
@@ -151,13 +152,13 @@ async fn refresh<R: Runtime>(app: &AppHandle<R>, client: &Client) {
         return;
     };
 
-    let fixtures = client.fetch_fixtures(&key).await;
+    let fixtures = client.fetch_fixtures(&key, settings.team.id).await;
     let now = Utc::now();
     let table_stale = match (&fixtures, table_fetched_at) {
         (Ok(new), Some(at)) => now - at > TABLE_MAX_AGE || a_match_just_finished(&previous, new),
         _ => true,
     };
-    let table = if fixtures.is_ok() && table_stale { Some(client.fetch_table(&key).await) } else { None };
+    let table = if fixtures.is_ok() && table_stale { Some(client.fetch_table(&key, &settings.team.league, settings.team.id).await) } else { None };
 
     state.finish_refresh(app, |inner| {
         let snap = &mut inner.cache.snapshot;
@@ -225,12 +226,12 @@ mod tests {
             competition_code: Some("PL".into()),
             competition_emblem: None,
             home: true,
-            arsenal: team("Arsenal"),
+            team: team("Arsenal"),
             opponent: team("Everton"),
-            arsenal_goals: None,
+            team_goals: None,
             opponent_goals: None,
             outcome: None,
-            half_time_arsenal: None,
+            half_time_team: None,
             half_time_opponent: None,
             matchday: None,
             stage: None,
@@ -303,7 +304,7 @@ mod tests {
     #[test]
     fn announces_recent_results_only() {
         let mut f = fixture(3, t(14, 0), MatchStatus::Finished);
-        f.arsenal_goals = Some(2);
+        f.team_goals = Some(2);
         f.opponent_goals = Some(1);
         f.outcome = Some(Outcome::Win);
         let settings = Settings::default();

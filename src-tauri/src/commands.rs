@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tauri_plugin_notification::NotificationExt;
 
 use crate::api::Client;
-use crate::models::{MatchDetails, Snapshot};
+use crate::models::{MatchDetails, Snapshot, TeamChoice, LEAGUES};
 use crate::settings::{self, Settings};
 use crate::state::AppState;
 use crate::stats::{self, StatsResult};
@@ -37,9 +37,27 @@ pub async fn get_match_details(
         return Ok(details);
     }
     let key = state.settings().effective_api_key().ok_or("Add an API key in Settings first.")?;
-    let details = client.fetch_match_details(&key, fixture_id).await.map_err(|e| e.user_message())?;
+    let details = client.fetch_match_details(&key, fixture_id, state.settings().team.id).await.map_err(|e| e.user_message())?;
     state.store_details(details.clone());
     Ok(details)
+}
+
+/// Leagues you can pick a team from: [code, name].
+#[tauri::command]
+pub fn list_leagues() -> Vec<(String, String)> {
+    LEAGUES.iter().map(|(code, name)| (code.to_string(), name.to_string())).collect()
+}
+
+/// Teams in a league, for the team picker (cached for the session).
+#[tauri::command]
+pub async fn list_teams(state: State<'_, AppState>, client: State<'_, Client>, league: String) -> Result<Vec<TeamChoice>, String> {
+    if let Some(teams) = state.cached_teams(&league) {
+        return Ok(teams);
+    }
+    let key = state.settings().effective_api_key().ok_or("Add an API key in Settings first.")?;
+    let teams = client.fetch_teams(&key, &league).await.map_err(|e| e.user_message())?;
+    state.store_teams(&league, teams.clone());
+    Ok(teams)
 }
 
 /// Goals, cards, subs, team stats, line-ups and predictions (Highlightly).
@@ -58,7 +76,11 @@ pub fn save_settings<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>, 
     if new.always_on_top != old.always_on_top {
         apply_always_on_top(&app, new.always_on_top);
     }
-    if new.api_key != old.api_key || new.refresh_minutes != old.refresh_minutes {
+    if new.team.id != old.team.id {
+        // Old fixtures and table belong to the previous team
+        state.reset_for_new_team(&app);
+    }
+    if new.team.id != old.team.id || new.api_key != old.api_key || new.refresh_minutes != old.refresh_minutes {
         state.request_refresh();
     } else {
         state.wake.notify_one(); // reminder settings may have changed

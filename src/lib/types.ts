@@ -19,12 +19,12 @@ export interface Fixture {
   competitionCode: string | null;
   competitionEmblem: string | null;
   home: boolean;
-  arsenal: TeamInfo;
+  team: TeamInfo;
   opponent: TeamInfo;
-  arsenalGoals: number | null;
+  teamGoals: number | null;
   opponentGoals: number | null;
   outcome: Outcome | null;
-  halfTimeArsenal: number | null;
+  halfTimeTeam: number | null;
   halfTimeOpponent: number | null;
   matchday: number | null;
   /** e.g. "REGULAR_SEASON", "LEAGUE_STAGE", "QUARTER_FINALS" */
@@ -57,7 +57,7 @@ export interface TableRow {
   lost: number;
   goalDifference: number;
   points: number;
-  isArsenal: boolean;
+  isTeam: boolean;
 }
 
 export interface Snapshot {
@@ -81,7 +81,7 @@ export type EventKind = "goal" | "penaltyGoal" | "ownGoal" | "missedPenalty" | "
 export interface MatchEvent {
   minute: string;
   kind: EventKind;
-  arsenal: boolean;
+  team: boolean;
   player: string;
   /** Assist for goals, player coming on for subs */
   detail: string | null;
@@ -89,7 +89,7 @@ export interface MatchEvent {
 
 export interface StatLine {
   label: string;
-  arsenal: number;
+  team: number;
   opponent: number;
   format: "percent" | "decimal" | "count";
 }
@@ -107,7 +107,7 @@ export interface TeamLineup {
 }
 
 export interface Prediction {
-  arsenalWin: number;
+  teamWin: number;
   draw: number;
   opponentWin: number;
   live: boolean;
@@ -116,7 +116,7 @@ export interface Prediction {
 export interface MatchStats {
   events: MatchEvent[];
   stats: StatLine[];
-  lineups: { arsenal: TeamLineup; opponent: TeamLineup } | null;
+  lineups: { team: TeamLineup; opponent: TeamLineup } | null;
   venue: string | null;
   weather: string | null;
   prediction: Prediction | null;
@@ -127,9 +127,25 @@ export type StatsResult =
   | { status: "notFound" }
   | { status: "ready"; stats: MatchStats; requestsLeft: number | null };
 
+/** The team the app follows (src-tauri/src/models.rs TeamChoice) */
+export interface TeamChoice {
+  id: number;
+  name: string;
+  shortName: string;
+  crest: string | null;
+  /** League code for the table, e.g. "PL" */
+  league: string;
+  venue: string | null;
+  /** e.g. "Red / White" */
+  colors: string | null;
+}
+
 export interface Settings {
+  team: TeamChoice;
   apiKey: string;
   statsApiKey: string;
+  goalAlerts: boolean;
+  miniMode: boolean;
   reminderMinutes: number[];
   resultNotifications: boolean;
   refreshMinutes: number;

@@ -55,7 +55,7 @@ export function NextView({ snapshot, onOpen }: { snapshot: Snapshot; onOpen: Ope
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search opponent"
-              className="h-7 w-full rounded-md border border-line bg-panel pl-7 pr-2 text-[12px] outline-none placeholder:text-muted focus:border-gunner/70"
+              className="h-7 w-full rounded-md border border-line bg-panel pl-7 pr-2 text-[12px] outline-none placeholder:text-muted focus:border-accent/70"
             />
           </label>
         </div>
@@ -105,10 +105,10 @@ export function ResultsView({ snapshot, onOpen }: { snapshot: Snapshot; onOpen: 
 // ---------- Table ----------
 
 export function TableView({ snapshot }: { snapshot: Snapshot }) {
-  const arsenalRow = useRef<HTMLTableRowElement>(null);
-  // Bring Arsenal's row to the middle of the scroll area
+  const teamRow = useRef<HTMLTableRowElement>(null);
+  // Bring the team's row to the middle of the scroll area
   useEffect(() => {
-    const row = arsenalRow.current;
+    const row = teamRow.current;
     const scroller = row?.closest("main");
     if (!row || !scroller) return;
     const offset = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
@@ -136,10 +136,10 @@ export function TableView({ snapshot }: { snapshot: Snapshot }) {
             return (
               <tr
                 key={row.position}
-                ref={row.isArsenal ? arsenalRow : undefined}
-                className={row.isArsenal ? "bg-gunner/20 font-semibold" : "odd:bg-panel/60"}
+                ref={row.isTeam ? teamRow : undefined}
+                className={row.isTeam ? "bg-accent/20 font-semibold" : "odd:bg-panel/60"}
               >
-                <td className={`border-l-2 py-1.5 pl-1.5 ${zone} ${row.isArsenal ? "rounded-l-md" : ""}`}>{row.position}</td>
+                <td className={`border-l-2 py-1.5 pl-1.5 ${zone} ${row.isTeam ? "rounded-l-md" : ""}`}>{row.position}</td>
                 <td className="py-1.5">
                   <span className="flex min-w-0 items-center gap-2">
                     <Crest team={row.team} size={16} />
@@ -148,7 +148,7 @@ export function TableView({ snapshot }: { snapshot: Snapshot }) {
                 </td>
                 <td className="py-1.5 text-right text-muted">{row.played}</td>
                 <td className="py-1.5 text-right text-muted">{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td>
-                <td className={`py-1.5 pr-2 text-right font-semibold ${row.isArsenal ? "rounded-r-md" : ""}`}>{row.points}</td>
+                <td className={`py-1.5 pr-2 text-right font-semibold ${row.isTeam ? "rounded-r-md" : ""}`}>{row.points}</td>
               </tr>
             );
           })}
@@ -176,10 +176,10 @@ export function WatchView({ snapshot, settings, onOpenSettings }: { snapshot: Sn
           <Crest team={headline.opponent} size={28} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13.5px] font-semibold">
-              {headline.home ? `Arsenal v ${headline.opponent.shortName}` : `${headline.opponent.shortName} v Arsenal`}
+              {headline.home ? `${headline.team.shortName} v ${headline.opponent.shortName}` : `${headline.opponent.shortName} v ${headline.team.shortName}`}
             </div>
             <div className="text-[12px] text-muted">
-              {isLive(headline) ? <span className="font-semibold text-gunner">On now</span> : headline.timeTbd ? "Kick-off time TBC" : `Starts in ${countdown(ms)}`}
+              {isLive(headline) ? <span className="font-semibold text-accent">On now</span> : headline.timeTbd ? "Kick-off time TBC" : `Starts in ${countdown(ms)}`}
               {" · "}{headline.competition}
             </div>
           </div>
@@ -194,9 +194,9 @@ export function WatchView({ snapshot, settings, onOpenSettings }: { snapshot: Sn
               <li key={`${link.url}-${i}`}>
                 <button
                   onClick={() => openLink(link.url)}
-                  className="group flex w-full items-center gap-3 rounded-lg border border-line bg-panel px-3 py-2.5 text-left transition-colors hover:border-gunner/60 hover:bg-panel-2"
+                  className="group flex w-full items-center gap-3 rounded-lg border border-line bg-panel px-3 py-2.5 text-left transition-colors hover:border-accent/60 hover:bg-panel-2"
                 >
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-gunner/15 text-gunner">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-accent/15 text-accent">
                     <TvIcon size={16} />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -212,7 +212,7 @@ export function WatchView({ snapshot, settings, onOpenSettings }: { snapshot: Sn
           <EmptyState title="No streaming links yet">
             Add the sites you watch on and they'll be one click away here.
             <div className="mt-3">
-              <button onClick={onOpenSettings} className="rounded-md bg-gunner px-3 py-1.5 text-[12.5px] font-semibold text-white hover:bg-gunner-dark">
+              <button onClick={onOpenSettings} className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white hover:bg-accent-dark">
                 Add links in Settings
               </button>
             </div>

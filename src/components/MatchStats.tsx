@@ -17,8 +17,8 @@ export function formatStat(value: number, format: StatLine["format"]): string {
 export function PredictionBar({ prediction: p, fixture: f }: { prediction: Prediction; fixture: Fixture }) {
   // Home on the left
   const parts = f.home
-    ? [{ label: f.arsenal.shortName, pct: p.arsenalWin, color: "bg-gunner" }, { label: "Draw", pct: p.draw, color: "bg-draw" }, { label: f.opponent.shortName, pct: p.opponentWin, color: "bg-sky-500" }]
-    : [{ label: f.opponent.shortName, pct: p.opponentWin, color: "bg-sky-500" }, { label: "Draw", pct: p.draw, color: "bg-draw" }, { label: f.arsenal.shortName, pct: p.arsenalWin, color: "bg-gunner" }];
+    ? [{ label: f.team.shortName, pct: p.teamWin, color: "bg-accent" }, { label: "Draw", pct: p.draw, color: "bg-draw" }, { label: f.opponent.shortName, pct: p.opponentWin, color: "bg-slate-400" }]
+    : [{ label: f.opponent.shortName, pct: p.opponentWin, color: "bg-slate-400" }, { label: "Draw", pct: p.draw, color: "bg-draw" }, { label: f.team.shortName, pct: p.teamWin, color: "bg-accent" }];
   return (
     <section>
       <SectionTitle>{p.live ? "Win probability (live)" : "Win probability"}</SectionTitle>
@@ -96,7 +96,7 @@ export function Timeline({ events, fixture: f }: { events: MatchEvent[]; fixture
         <ol className="space-y-px overflow-hidden rounded-xl bg-panel">
           {shown.map((e, i) => {
             // Home team's events on the left
-            const left = e.arsenal === f.home;
+            const left = e.team === f.home;
             const { main, sub } = eventText(e);
             const isGoal = e.kind === "goal" || e.kind === "penaltyGoal" || e.kind === "ownGoal";
             return (
@@ -129,7 +129,7 @@ function EventLabel({ main, sub, icon, bold, align }: { main: string; sub: strin
 
 export function StatBars({ stats, fixture: f }: { stats: StatLine[]; fixture: Fixture }) {
   if (!stats.length) return null;
-  const [leftTeam, rightTeam] = f.home ? [f.arsenal, f.opponent] : [f.opponent, f.arsenal];
+  const [leftTeam, rightTeam] = f.home ? [f.team, f.opponent] : [f.opponent, f.team];
   return (
     <section>
       <SectionTitle>Match stats</SectionTitle>
@@ -140,10 +140,10 @@ export function StatBars({ stats, fixture: f }: { stats: StatLine[]; fixture: Fi
         </div>
         <div className="space-y-3">
           {stats.map((s) => {
-            const [left, right] = f.home ? [s.arsenal, s.opponent] : [s.opponent, s.arsenal];
+            const [left, right] = f.home ? [s.team, s.opponent] : [s.opponent, s.team];
             const total = left + right;
             const leftShare = total > 0 ? (left / total) * 100 : 50;
-            const arsenalLeft = f.home;
+            const teamLeft = f.home;
             const leftBetter = left > right;
             const rightBetter = right > left;
             return (
@@ -154,8 +154,8 @@ export function StatBars({ stats, fixture: f }: { stats: StatLine[]; fixture: Fi
                   <span className={rightBetter ? "font-semibold" : "text-muted"}>{formatStat(right, s.format)}</span>
                 </div>
                 <div className="mt-1 flex h-1.5 gap-0.5">
-                  <span className={`rounded-l-full ${arsenalLeft ? "bg-gunner" : "bg-sky-500"} ${leftBetter ? "" : "opacity-50"}`} style={{ width: `${leftShare}%` }} />
-                  <span className={`rounded-r-full ${arsenalLeft ? "bg-sky-500" : "bg-gunner"} ${rightBetter ? "" : "opacity-50"}`} style={{ width: `${100 - leftShare}%` }} />
+                  <span className={`rounded-l-full ${teamLeft ? "bg-accent" : "bg-slate-400"} ${leftBetter ? "" : "opacity-50"}`} style={{ width: `${leftShare}%` }} />
+                  <span className={`rounded-r-full ${teamLeft ? "bg-slate-400" : "bg-accent"} ${rightBetter ? "" : "opacity-50"}`} style={{ width: `${100 - leftShare}%` }} />
                 </div>
               </div>
             );
@@ -175,9 +175,9 @@ function surname(name: string): string {
 }
 
 export function LineupView({ lineups, fixture: f }: { lineups: NonNullable<MatchStats["lineups"]>; fixture: Fixture }) {
-  const [side, setSide] = useState<"arsenal" | "opponent">("arsenal");
+  const [side, setSide] = useState<"team" | "opponent">("team");
   const lineup: TeamLineup = lineups[side];
-  const team = side === "arsenal" ? f.arsenal : f.opponent;
+  const team = side === "team" ? f.team : f.opponent;
   // Draw from the attack down to the goalkeeper
   const rows = [...lineup.rows].reverse();
 
@@ -186,13 +186,13 @@ export function LineupView({ lineups, fixture: f }: { lineups: NonNullable<Match
       <div className="flex items-center justify-between">
         <SectionTitle>Line-ups</SectionTitle>
         <div className="mb-1.5 flex gap-0.5 rounded-md bg-panel p-0.5 text-[11.5px]">
-          {(["arsenal", "opponent"] as const).map((s) => (
+          {(["team", "opponent"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSide(s)}
-              className={`rounded px-2 py-0.5 ${side === s ? "bg-gunner text-white" : "text-muted hover:text-white"}`}
+              className={`rounded px-2 py-0.5 ${side === s ? "bg-accent text-white" : "text-muted hover:text-white"}`}
             >
-              {s === "arsenal" ? f.arsenal.shortName : f.opponent.shortName}
+              {s === "team" ? f.team.shortName : f.opponent.shortName}
             </button>
           ))}
         </div>
@@ -213,7 +213,7 @@ export function LineupView({ lineups, fixture: f }: { lineups: NonNullable<Match
             <div key={i} className="flex justify-around">
               {row.map((p) => (
                 <div key={`${p.name}-${p.number}`} className="flex w-16 flex-col items-center gap-0.5 text-center" title={p.name}>
-                  <span className={`grid h-7 w-7 place-items-center rounded-full text-[11px] font-bold shadow ${side === "arsenal" ? "bg-gunner text-white" : "bg-white text-ink"}`}>
+                  <span className={`grid h-7 w-7 place-items-center rounded-full text-[11px] font-bold shadow ${side === "team" ? "bg-accent text-white" : "bg-white text-ink"}`}>
                     {p.number ?? ""}
                   </span>
                   <span className="w-full truncate text-[10.5px] font-medium text-white drop-shadow">{surname(p.name)}</span>

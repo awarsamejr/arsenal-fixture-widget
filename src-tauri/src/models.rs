@@ -4,9 +4,67 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-pub const ARSENAL_ID: u64 = 57;
+/// The team the app follows (picked in Settings).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamChoice {
+    /// football-data.org team id
+    pub id: u64,
+    pub name: String,
+    pub short_name: String,
+    pub crest: Option<String>,
+    /// League code for the table, e.g. "PL", "BL1"
+    pub league: String,
+    pub venue: Option<String>,
+    /// e.g. "Red / White"; the UI turns this into a theme colour
+    pub colors: Option<String>,
+}
+
+impl Default for TeamChoice {
+    /// Arsenal, so existing installs carry on as before.
+    fn default() -> Self {
+        Self {
+            id: 57,
+            name: "Arsenal FC".into(),
+            short_name: "Arsenal".into(),
+            crest: Some("https://crests.football-data.org/57.png".into()),
+            league: "PL".into(),
+            venue: Some("Emirates Stadium".into()),
+            colors: Some("Red / White".into()),
+        }
+    }
+}
+
+/// Leagues the free football-data.org plan covers: (code, name).
+pub const LEAGUES: &[(&str, &str)] = &[
+    ("PL", "Premier League"),
+    ("ELC", "Championship"),
+    ("PD", "La Liga"),
+    ("BL1", "Bundesliga"),
+    ("SA", "Serie A"),
+    ("FL1", "Ligue 1"),
+    ("DED", "Eredivisie"),
+    ("PPL", "Primeira Liga"),
+    ("BSA", "Brasileirão"),
+];
 
 // ---------- Raw API responses (only the fields we use) ----------
+
+#[derive(Deserialize)]
+pub struct TeamsResponse {
+    pub teams: Vec<ApiTeamDetails>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiTeamDetails {
+    pub id: u64,
+    pub name: String,
+    pub short_name: Option<String>,
+    pub crest: Option<String>,
+    pub venue: Option<String>,
+    pub club_colors: Option<String>,
+}
 
 #[derive(Deserialize)]
 pub struct MatchesResponse {
@@ -166,13 +224,13 @@ pub struct Fixture {
     pub competition_code: Option<String>,
     pub competition_emblem: Option<String>,
     pub home: bool,
-    pub arsenal: TeamInfo,
+    pub team: TeamInfo,
     pub opponent: TeamInfo,
-    pub arsenal_goals: Option<u32>,
+    pub team_goals: Option<u32>,
     pub opponent_goals: Option<u32>,
     pub outcome: Option<Outcome>,
     #[serde(default)]
-    pub half_time_arsenal: Option<u32>,
+    pub half_time_team: Option<u32>,
     #[serde(default)]
     pub half_time_opponent: Option<u32>,
     #[serde(default)]
@@ -185,26 +243,26 @@ pub struct Fixture {
 }
 
 impl Fixture {
-    /// Returns None for matches that don't involve Arsenal.
-    pub fn from_api(m: &ApiMatch) -> Option<Self> {
-        let home = if m.home_team.id == Some(ARSENAL_ID) {
+    /// Builds a fixture from your team's point of view; None if the team isn't playing.
+    pub fn from_api(m: &ApiMatch, team_id: u64) -> Option<Self> {
+        let home = if m.home_team.id == Some(team_id) {
             true
-        } else if m.away_team.id == Some(ARSENAL_ID) {
+        } else if m.away_team.id == Some(team_id) {
             false
         } else {
             return None;
         };
         let (us, them) = if home { (&m.home_team, &m.away_team) } else { (&m.away_team, &m.home_team) };
         let ours_first = |g: &Goals| if home { (g.home, g.away) } else { (g.away, g.home) };
-        let (arsenal_goals, opponent_goals) = ours_first(&m.score.full_time);
-        let (half_time_arsenal, half_time_opponent) = ours_first(&m.score.half_time);
+        let (team_goals, opponent_goals) = ours_first(&m.score.full_time);
+        let (half_time_team, half_time_opponent) = ours_first(&m.score.half_time);
         let referee = m
             .referees
             .iter()
             .find(|r| r.kind.as_deref().is_none_or(|k| k == "REFEREE"))
             .map(|r| r.name.clone());
         let status = MatchStatus::from_api(&m.status);
-        let outcome = match (status, arsenal_goals, opponent_goals) {
+        let outcome = match (status, team_goals, opponent_goals) {
             (MatchStatus::Finished, Some(a), Some(o)) => Some(if a > o {
                 Outcome::Win
             } else if a < o {
@@ -224,12 +282,12 @@ impl Fixture {
             competition_code: m.competition.code.clone(),
             competition_emblem: m.competition.emblem.clone(),
             home,
-            arsenal: us.into(),
+            team: us.into(),
             opponent: them.into(),
-            arsenal_goals,
+            team_goals,
             opponent_goals,
             outcome,
-            half_time_arsenal,
+            half_time_team,
             half_time_opponent,
             matchday: m.matchday,
             stage: m.stage.clone(),
@@ -240,19 +298,19 @@ impl Fixture {
     /// "Arsenal v Everton" with the home side first.
     pub fn title(&self) -> String {
         if self.home {
-            format!("{} v {}", self.arsenal.short_name, self.opponent.short_name)
+            format!("{} v {}", self.team.short_name, self.opponent.short_name)
         } else {
-            format!("{} v {}", self.opponent.short_name, self.arsenal.short_name)
+            format!("{} v {}", self.opponent.short_name, self.team.short_name)
         }
     }
 
     /// "Arsenal 2–1 Everton" with the home side first, or None before a score exists.
     pub fn score_line(&self) -> Option<String> {
-        let (a, o) = (self.arsenal_goals?, self.opponent_goals?);
+        let (a, o) = (self.team_goals?, self.opponent_goals?);
         Some(if self.home {
-            format!("{} {}–{} {}", self.arsenal.short_name, a, o, self.opponent.short_name)
+            format!("{} {}–{} {}", self.team.short_name, a, o, self.opponent.short_name)
         } else {
-            format!("{} {}–{} {}", self.opponent.short_name, o, a, self.arsenal.short_name)
+            format!("{} {}–{} {}", self.opponent.short_name, o, a, self.team.short_name)
         })
     }
 }
@@ -268,11 +326,11 @@ pub struct TableRow {
     pub lost: u32,
     pub goal_difference: i32,
     pub points: u32,
-    pub is_arsenal: bool,
+    pub is_team: bool,
 }
 
-impl From<&ApiTableRow> for TableRow {
-    fn from(r: &ApiTableRow) -> Self {
+impl TableRow {
+    pub fn from_api(r: &ApiTableRow, team_id: u64) -> Self {
         Self {
             position: r.position,
             team: (&r.team).into(),
@@ -282,12 +340,12 @@ impl From<&ApiTableRow> for TableRow {
             lost: r.lost,
             goal_difference: r.goal_difference,
             points: r.points,
-            is_arsenal: r.team.id == Some(ARSENAL_ID),
+            is_team: r.team.id == Some(team_id),
         }
     }
 }
 
-/// Arsenal's record against one opponent, from Arsenal's point of view.
+/// Your team's record against one opponent.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct HeadToHead {
@@ -316,7 +374,7 @@ impl MatchDetails {
         let mut h2h = HeadToHead::default();
         for f in &meetings {
             h2h.played += 1;
-            h2h.goals_for += f.arsenal_goals.unwrap_or(0);
+            h2h.goals_for += f.team_goals.unwrap_or(0);
             h2h.goals_against += f.opponent_goals.unwrap_or(0);
             match f.outcome {
                 Some(Outcome::Win) => h2h.wins += 1,

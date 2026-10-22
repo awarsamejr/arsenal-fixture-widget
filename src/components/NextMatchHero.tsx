@@ -13,15 +13,18 @@ interface Props {
 export function NextMatchHero({ fixture: f, now, onOpen }: Props) {
   const live = isLive(f);
   const finished = f.status === "finished";
-  const [left, right] = f.home ? [f.arsenal, f.opponent] : [f.opponent, f.arsenal];
-  const [leftGoals, rightGoals] = f.home ? [f.arsenalGoals, f.opponentGoals] : [f.opponentGoals, f.arsenalGoals];
-  const [leftHt, rightHt] = f.home ? [f.halfTimeArsenal, f.halfTimeOpponent] : [f.halfTimeOpponent, f.halfTimeArsenal];
+  const [left, right] = f.home ? [f.team, f.opponent] : [f.opponent, f.team];
+  const [leftGoals, rightGoals] = f.home ? [f.teamGoals, f.opponentGoals] : [f.opponentGoals, f.teamGoals];
+  const [leftHt, rightHt] = f.home ? [f.halfTimeTeam, f.halfTimeOpponent] : [f.halfTimeOpponent, f.halfTimeTeam];
   const msToKickoff = new Date(f.kickoff).getTime() - now.getTime();
 
   return (
     <section
       className={`relative overflow-hidden rounded-2xl p-4 text-white shadow-lg shadow-black/30 ${onOpen ? "cursor-pointer transition-transform hover:brightness-110 active:scale-[0.99]" : ""}`}
-      style={{ background: "linear-gradient(145deg, #ef0107 0%, #b00005 55%, #6e0003 100%)" }}
+      style={{
+        background:
+          "linear-gradient(145deg, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 72%, black) 55%, color-mix(in srgb, var(--color-accent) 45%, black) 100%)",
+      }}
       onClick={onOpen}
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
@@ -84,7 +87,7 @@ export function NextMatchHero({ fixture: f, now, onOpen }: Props) {
   );
 }
 
-function TeamBlock({ team }: { team: Fixture["arsenal"] }) {
+function TeamBlock({ team }: { team: Fixture["team"] }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-2 text-center">
       <span className="grid h-16 w-16 place-items-center rounded-full bg-white/95 p-2.5 shadow-md shadow-black/20">

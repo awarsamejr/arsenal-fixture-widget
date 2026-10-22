@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_store::StoreExt;
 
 use crate::highlightly::MatchStats;
-use crate::models::Snapshot;
+use crate::models::{Snapshot, TeamChoice};
 
 const SETTINGS_FILE: &str = "settings.json";
 const CACHE_FILE: &str = "cache.json";
@@ -25,6 +25,8 @@ pub struct StreamLink {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
+    /// The team the app follows
+    pub team: TeamChoice,
     /// Empty means "use api_key.txt"
     pub api_key: String,
     /// Highlightly key for match stats; empty means "use highlightly_key.txt"
@@ -32,20 +34,27 @@ pub struct Settings {
     /// Minutes before kick-off to remind; 0 means at kick-off
     pub reminder_minutes: Vec<u32>,
     pub result_notifications: bool,
+    /// Notify the moment a goal is scored in a live match
+    pub goal_alerts: bool,
     pub refresh_minutes: u32,
     pub always_on_top: bool,
+    /// Shrunk to the one-line strip (desktop only)
+    pub mini_mode: bool,
     pub stream_links: Vec<StreamLink>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            team: TeamChoice::default(),
             api_key: String::new(),
             stats_api_key: String::new(),
             reminder_minutes: vec![24 * 60, 60, 0],
             result_notifications: true,
+            goal_alerts: true,
             refresh_minutes: 15,
             always_on_top: true,
+            mini_mode: false,
             stream_links: Vec::new(),
         }
     }
@@ -118,6 +127,11 @@ pub struct StatsCache {
     pub entries: HashMap<u64, StatsEntry>,
     /// Requests left today, from the last response
     pub requests_left: Option<u32>,
+    /// The football-data team these entries belong to; a different team clears them
+    pub team_id: Option<u64>,
+    /// Highlightly ids that might be this team (several clubs can share a name),
+    /// best guess first. Narrowed to one once a match lookup succeeds.
+    pub highlightly_team: Option<Vec<u64>>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

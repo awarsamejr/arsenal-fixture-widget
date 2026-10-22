@@ -23,12 +23,12 @@ const base: Fixture = {
   competitionCode: "PL",
   competitionEmblem: null,
   home: true,
-  arsenal: { name: "Arsenal FC", shortName: "Arsenal", crest: null },
+  team: { name: "Arsenal FC", shortName: "Arsenal", crest: null },
   opponent: { name: "Tottenham Hotspur FC", shortName: "Tottenham", crest: null },
-  arsenalGoals: null,
+  teamGoals: null,
   opponentGoals: null,
   outcome: null,
-  halfTimeArsenal: null,
+  halfTimeTeam: null,
   halfTimeOpponent: null,
   matchday: null,
   stage: null,
@@ -61,12 +61,12 @@ describe("dayLabel", () => {
 
 describe("scoreText", () => {
   it("puts the home side first", () => {
-    expect(scoreText({ ...base, arsenalGoals: 2, opponentGoals: 1 })).toBe("2–1");
-    expect(scoreText({ ...base, home: false, arsenalGoals: 2, opponentGoals: 1 })).toBe("1–2");
+    expect(scoreText({ ...base, teamGoals: 2, opponentGoals: 1 })).toBe("2–1");
+    expect(scoreText({ ...base, home: false, teamGoals: 2, opponentGoals: 1 })).toBe("1–2");
     expect(scoreText(base)).toBe("–");
   });
   it("can show Arsenal's goals first", () => {
-    expect(ourScoreText({ ...base, home: false, arsenalGoals: 0, opponentGoals: 3 })).toBe("0–3");
+    expect(ourScoreText({ ...base, home: false, teamGoals: 0, opponentGoals: 3 })).toBe("0–3");
   });
   it("shortens competition names", () => {
     expect(competitionShort({ competition: "UEFA Champions League", competitionCode: "CL" })).toBe("UCL");

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openLink, refreshNow, saveSettings } from "./lib/api";
 import { updatedAgo } from "./lib/format";
+import { applyAccent } from "./lib/teamColors";
 import { useAppData, useNow } from "./lib/hooks";
 import type { Fixture, Snapshot } from "./lib/types";
 import { AlertIcon, RefreshIcon, SettingsIcon } from "./components/icons";
@@ -36,6 +37,9 @@ export default function App() {
     if (scroller.current) scroller.current.scrollTop = 0;
   }, [openMatchId]);
 
+  // The whole app takes on the team's colour
+  useEffect(() => applyAccent(settings?.team.colors), [settings?.team.colors]);
+
   if (!snapshot || !settings) {
     return <div className="grid h-full place-items-center text-muted">Loading…</div>;
   }
@@ -45,7 +49,7 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBar pinned={settings.alwaysOnTop} onTogglePin={() => saveSettings({ ...settings, alwaysOnTop: !settings.alwaysOnTop })} />
+      <TitleBar team={settings.team} pinned={settings.alwaysOnTop} onTogglePin={() => saveSettings({ ...settings, alwaysOnTop: !settings.alwaysOnTop })} />
 
       <nav className="flex shrink-0 items-center gap-1 px-3 pb-2">
         <div className="flex flex-1 gap-0.5 rounded-lg bg-panel p-0.5">
@@ -53,7 +57,7 @@ export default function App() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 rounded-md py-1.5 text-[12.5px] font-medium ${tab === t.id ? "bg-gunner text-white shadow-sm" : "text-muted hover:text-white"}`}
+              className={`flex-1 rounded-md py-1.5 text-[12.5px] font-medium ${tab === t.id ? "bg-accent text-white shadow-sm" : "text-muted hover:text-white"}`}
             >
               {t.label}
             </button>
@@ -62,7 +66,7 @@ export default function App() {
         <button
           onClick={() => setTab("settings")}
           title="Settings"
-          className={`grid h-8 w-8 place-items-center rounded-lg ${tab === "settings" ? "bg-gunner text-white" : "bg-panel text-muted hover:text-white"}`}
+          className={`grid h-8 w-8 place-items-center rounded-lg ${tab === "settings" ? "bg-accent text-white" : "bg-panel text-muted hover:text-white"}`}
         >
           <SettingsIcon size={15} />
         </button>
@@ -72,7 +76,7 @@ export default function App() {
         {needsKey ? (
           <Welcome onOpenSettings={() => setTab("settings")} />
         ) : openMatchFixture ? (
-          <MatchDetailView fixture={openMatchFixture} snapshot={snapshot} onBack={closeMatch} />
+          <MatchDetailView fixture={openMatchFixture} team={settings.team} snapshot={snapshot} onBack={closeMatch} />
         ) : (
           <>
             {tab === "next" && <NextView snapshot={snapshot} onOpen={openMatch} />}
@@ -120,7 +124,7 @@ function Welcome({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="flex flex-col items-center px-4 py-8 text-center">
       <img src="/logo.svg" alt="" className="h-14 w-14" />
-      <h2 className="mt-4 font-display text-lg font-semibold">Welcome, Gooner</h2>
+      <h2 className="mt-4 font-display text-lg font-semibold">Welcome to Matchnight</h2>
       <p className="mt-2 text-[13px] leading-relaxed text-muted">
         This widget gets its fixtures from football-data.org. Sign up for a free API key, then paste it in Settings.
       </p>
@@ -131,7 +135,7 @@ function Welcome({ onOpenSettings }: { onOpenSettings: () => void }) {
         >
           Get a free key
         </button>
-        <button onClick={onOpenSettings} className="rounded-md bg-gunner px-4 py-2 text-[13px] font-semibold text-white hover:bg-gunner-dark">
+        <button onClick={onOpenSettings} className="rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-dark">
           Enter key in Settings
         </button>
       </div>

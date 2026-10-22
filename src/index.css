@@ -9,8 +9,8 @@
   --color-panel-2: #1e232d;    /* raised / hover */
   --color-line: #262c38;       /* borders */
   --color-muted: #8b93a3;      /* secondary text */
-  --color-gunner: #ef0107;     /* Arsenal red */
-  --color-gunner-dark: #9c0006;
+  --color-accent: #ef0107;     /* team colour, set at runtime from the chosen team */
+  --color-accent-dark: #9c0006;
   --color-gold: #d4a64a;
   --color-win: #22c55e;
   --color-draw: #9ca3af;

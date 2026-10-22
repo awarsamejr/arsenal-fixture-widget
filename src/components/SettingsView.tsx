@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { openLink, saveSettings, testNotification } from "../lib/api";
-import type { Settings, StreamLink } from "../lib/types";
+import { listLeagues, listTeams, openLink, saveSettings, testNotification } from "../lib/api";
+import type { Settings, StreamLink, TeamChoice } from "../lib/types";
+import { Crest } from "./Crest";
 import { DownIcon, EyeIcon, PlusIcon, TrashIcon, UpIcon } from "./icons";
 import { SectionTitle } from "./views";
 
@@ -16,7 +17,7 @@ const REMINDER_OPTIONS: { minutes: number; label: string }[] = [
 const REFRESH_OPTIONS = [5, 10, 15, 30, 60];
 
 const input =
-  "h-8 w-full rounded-md border border-line bg-ink px-2.5 text-[12.5px] outline-none placeholder:text-muted/70 focus:border-gunner/70";
+  "h-8 w-full rounded-md border border-line bg-ink px-2.5 text-[12.5px] outline-none placeholder:text-muted/70 focus:border-accent/70";
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -38,11 +39,88 @@ function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-gunner" : "bg-line"}`}
+        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-accent" : "bg-line"}`}
       >
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
       </button>
     </label>
+  );
+}
+
+/** Shows the current team, and lets you pick another from a league. */
+function TeamPicker({ team, onPick, canLoad }: { team: TeamChoice; onPick: (t: TeamChoice) => void; canLoad: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [leagues, setLeagues] = useState<[string, string][]>([]);
+  const [league, setLeague] = useState(team.league);
+  const [teams, setTeams] = useState<TeamChoice[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && !leagues.length) listLeagues().then(setLeagues);
+  }, [open, leagues.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    setTeams(null);
+    setError(null);
+    listTeams(league)
+      .then(setTeams)
+      .catch((e) => setError(String(e)));
+  }, [open, league]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <Crest team={team} size={32} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13.5px] font-semibold">{team.name}</div>
+          <div className="truncate text-[11.5px] text-muted">{team.venue ?? team.league}</div>
+        </div>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          disabled={!canLoad}
+          title={canLoad ? undefined : "Add a football-data key first"}
+          className="rounded-md border border-line px-2.5 py-1 text-[12px] hover:bg-panel-2 disabled:opacity-40"
+        >
+          {open ? "Close" : "Change"}
+        </button>
+      </div>
+      {open && (
+        <>
+          <select
+            value={league}
+            onChange={(e) => setLeague(e.target.value)}
+            className="h-8 w-full rounded-md border border-line bg-ink px-2 text-[12.5px] outline-none focus:border-accent/70"
+          >
+            {(leagues.length ? leagues : [[league, league] as [string, string]]).map(([code, name]) => (
+              <option key={code} value={code}>{name}</option>
+            ))}
+          </select>
+          {error ? (
+            <p className="text-[12px] text-loss">{error}</p>
+          ) : !teams ? (
+            <div className="h-32 animate-pulse rounded-lg bg-ink" />
+          ) : (
+            <ul className="grid max-h-56 grid-cols-2 gap-1 overflow-y-auto">
+              {teams.map((t) => (
+                <li key={t.id}>
+                  <button
+                    onClick={() => {
+                      onPick(t);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] hover:bg-panel-2 ${t.id === team.id ? "bg-accent/20" : ""}`}
+                  >
+                    <Crest team={t} size={18} />
+                    <span className="truncate">{t.shortName}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -84,10 +162,17 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
 
   return (
     <div className="space-y-4">
+      <Card title="Your team">
+        <TeamPicker team={draft.team} onPick={(team) => update({ team })} canLoad={hasApiKey || !!draft.apiKey.trim()} />
+        {draft.team.id !== settings.team.id && (
+          <p className="text-[11.5px] text-muted">Save to switch to {draft.team.shortName}.</p>
+        )}
+      </Card>
+
       <Card title="API key">
         <p className="text-[12px] leading-relaxed text-muted">
           A free key from{" "}
-          <button className="text-white underline decoration-gunner underline-offset-2" onClick={() => openLink("https://www.football-data.org/client/register")}>
+          <button className="text-white underline decoration-accent underline-offset-2" onClick={() => openLink("https://www.football-data.org/client/register")}>
             football-data.org
           </button>
           . Leave blank to use <code className="text-white/80">api_key.txt</code>.
@@ -115,7 +200,7 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
       <Card title="Match stats key">
         <p className="text-[12px] leading-relaxed text-muted">
           Goals, cards, line-ups and stats come from{" "}
-          <button className="text-white underline decoration-gunner underline-offset-2" onClick={() => openLink("https://highlightly.net")}>
+          <button className="text-white underline decoration-accent underline-offset-2" onClick={() => openLink("https://highlightly.net")}>
             Highlightly
           </button>{" "}
           (free, 100 requests a day). Leave blank to use <code className="text-white/80">highlightly_key.txt</code>.
@@ -142,7 +227,7 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
                   key={minutes}
                   onClick={() => toggleReminder(minutes)}
                   aria-pressed={on}
-                  className={`rounded-full border px-2.5 py-1 text-[12px] transition-colors ${on ? "border-gunner bg-gunner/20 text-white" : "border-line text-muted hover:text-white"}`}
+                  className={`rounded-full border px-2.5 py-1 text-[12px] transition-colors ${on ? "border-accent bg-accent/20 text-white" : "border-line text-muted hover:text-white"}`}
                 >
                   {label}
                 </button>
@@ -166,7 +251,7 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
           <select
             value={draft.refreshMinutes}
             onChange={(e) => update({ refreshMinutes: Number(e.target.value) })}
-            className="h-8 rounded-md border border-line bg-ink px-2 text-[12.5px] outline-none focus:border-gunner/70"
+            className="h-8 rounded-md border border-line bg-ink px-2 text-[12.5px] outline-none focus:border-accent/70"
           >
             {REFRESH_OPTIONS.map((m) => <option key={m} value={m}>{m} min</option>)}
           </select>
@@ -190,7 +275,7 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
         ))}
         <button
           onClick={() => update({ streamLinks: [...draft.streamLinks, { name: "", url: "" }] })}
-          className="flex items-center gap-1.5 text-[12.5px] font-medium text-gunner hover:text-white"
+          className="flex items-center gap-1.5 text-[12.5px] font-medium text-accent hover:text-white"
         >
           <PlusIcon size={14} /> Add link
         </button>
@@ -207,7 +292,7 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
         <button
           onClick={save}
           disabled={!dirty}
-          className="rounded-md bg-gunner px-4 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-gunner-dark disabled:bg-panel-2 disabled:text-muted"
+          className="rounded-md bg-accent px-4 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-accent-dark disabled:bg-panel-2 disabled:text-muted"
         >
           Save
         </button>

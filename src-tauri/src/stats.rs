@@ -57,15 +57,26 @@ pub async fn get_stats<R: Runtime>(app: &AppHandle<R>, fixture_id: u64) -> Resul
         .into_iter()
         .find(|f| f.id == fixture_id)
         .ok_or("Match not found.")?;
-    let Some(key) = state.settings().effective_stats_key() else {
+    let settings = state.settings();
+    let Some(key) = settings.effective_stats_key() else {
         return Ok(StatsResult::NoKey);
     };
+    let team = settings.team;
 
     let now = Utc::now();
     let store = app.state::<StatsStore>();
-    let cached = {
-        let cache = store.0.lock().unwrap_or_else(|p| p.into_inner());
-        cache.entries.get(&fixture_id).cloned().map(|e| (e, cache.requests_left))
+    let (cached, team_candidates) = {
+        let mut cache = store.0.lock().unwrap_or_else(|p| p.into_inner());
+        // Switched team: nothing cached applies any more
+        if cache.team_id != Some(team.id) {
+            cache.entries.clear();
+            cache.highlightly_team = None;
+            cache.team_id = Some(team.id);
+        }
+        (
+            cache.entries.get(&fixture_id).cloned().map(|e| (e, cache.requests_left)),
+            cache.highlightly_team.clone(),
+        )
     };
     if let Some((entry, requests_left)) = &cached {
         if is_fresh(entry, &fixture, now) {
@@ -79,28 +90,53 @@ pub async fn get_stats<R: Runtime>(app: &AppHandle<R>, fixture_id: u64) -> Resul
     let client = app.state::<StatsClient>();
     let mut requests_left = None;
 
-    // Find Highlightly's id for this match (once; it never changes)
-    let known_id = cached.as_ref().and_then(|(e, _)| e.highlightly_id);
-    let highlightly_id = match known_id {
-        Some(id) => Some(id),
+    // Highlightly's id(s) for the team: searched once per team, then remembered
+    let candidates = match team_candidates {
+        Some(ids) => ids,
         None => {
-            let found = client.find_match_id(&key, fixture.kickoff, fixture.home).await.map_err(message)?;
+            let found = client.find_team_candidates(&key, &team.name, &team.short_name).await.map_err(message)?;
             requests_left = found.remaining;
             found.value
         }
     };
 
-    let stats = match highlightly_id {
-        Some(id) => {
-            let res = client.fetch_stats(&key, id, wants_lineups(&fixture, now)).await.map_err(message)?;
+    // Find Highlightly's id for this match (once; it never changes). If several
+    // clubs share the team's name, the one that has this match is the right one.
+    let known_id = cached.as_ref().and_then(|(e, _)| e.highlightly_id);
+    let mut confirmed_team = None;
+    let highlightly_id = match known_id {
+        Some(id) => Some(id),
+        None => {
+            let mut found_id = None;
+            for &candidate in &candidates {
+                let found = client.find_match_id(&key, candidate, fixture.kickoff, fixture.home).await.map_err(message)?;
+                requests_left = found.remaining.or(requests_left);
+                if found.value.is_some() {
+                    found_id = found.value;
+                    confirmed_team = Some(candidate);
+                    break;
+                }
+            }
+            found_id
+        }
+    };
+    let team_hl_id = confirmed_team.or(candidates.first().copied());
+
+    let stats = match (highlightly_id, team_hl_id) {
+        (Some(id), Some(team_hl_id)) => {
+            let res = client.fetch_stats(&key, team_hl_id, id, wants_lineups(&fixture, now)).await.map_err(message)?;
             requests_left = res.remaining.or(requests_left);
             Some(res.value)
         }
-        None => None,
+        _ => None,
     };
 
     {
         let mut cache = store.0.lock().unwrap_or_else(|p| p.into_inner());
+        cache.highlightly_team = Some(match confirmed_team {
+            Some(id) => vec![id],
+            None => candidates,
+        });
         cache.entries.insert(
             fixture_id,
             StatsEntry {
@@ -150,12 +186,12 @@ mod tests {
             competition_code: None,
             competition_emblem: None,
             home: true,
-            arsenal: team("Arsenal"),
+            team: team("Arsenal"),
             opponent: team("Everton"),
-            arsenal_goals: None,
+            team_goals: None,
             opponent_goals: None,
             outcome: None,
-            half_time_arsenal: None,
+            half_time_team: None,
             half_time_opponent: None,
             matchday: None,
             stage: None,
@@ -191,7 +227,7 @@ mod tests {
 
     #[test]
     fn serialises_the_shape_the_ui_expects() {
-        let stats = crate::highlightly::parse_match(include_str!("../testdata/hl_match.json")).unwrap();
+        let stats = crate::highlightly::parse_match(include_str!("../testdata/hl_match.json"), 36526).unwrap();
         let json = serde_json::to_value(StatsResult::Ready { stats, requests_left: Some(95) }).unwrap();
         assert_eq!(json["status"], "ready");
         assert_eq!(json["requestsLeft"], 95);

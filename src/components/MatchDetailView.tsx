@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getMatchDetails, getMatchStats } from "../lib/api";
 import { formBefore, isLive, stageLabel } from "../lib/format";
 import { useNow } from "../lib/hooks";
-import type { Fixture, MatchDetails, Snapshot, StatsResult } from "../lib/types";
+import type { Fixture, MatchDetails, Snapshot, StatsResult, TeamChoice } from "../lib/types";
 import { Crest } from "./Crest";
 import { FixtureRow, OutcomeChip } from "./FixtureRow";
 import { LineupView, PredictionBar, StatBars, Timeline } from "./MatchStats";
@@ -11,12 +11,14 @@ import { SectionTitle } from "./views";
 
 interface Props {
   fixture: Fixture;
+  /** The followed team, for its venue and league */
+  team: TeamChoice;
   snapshot: Snapshot;
   onBack: () => void;
 }
 
 /** Everything we know about one match: score, info, form, league positions, head-to-head. */
-export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
+export function MatchDetailView({ fixture: f, team, snapshot, onBack }: Props) {
   const now = useNow(1000);
   const [details, setDetails] = useState<MatchDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
   // Stats reload with the match status, so a live match keeps updating
   useEffect(() => {
     loadStats();
-  }, [loadStats, f.status, f.arsenalGoals, f.opponentGoals]);
+  }, [loadStats, f.status, f.teamGoals, f.opponentGoals]);
   useEffect(() => {
     if (!isLive(f)) return;
     const id = setInterval(loadStats, 60_000);
@@ -62,7 +64,7 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
   }, [onBack]);
 
   const form = formBefore(snapshot.fixtures, f.kickoff);
-  const arsenalRow = snapshot.table.find((r) => r.isArsenal);
+  const teamRow = snapshot.table.find((r) => r.isTeam);
   const opponentRow = snapshot.table.find((r) => r.team.name === f.opponent.name);
   const kickoff = new Date(f.kickoff);
   const info: [string, string][] = [
@@ -72,7 +74,7 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
       kickoff.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) +
         (f.timeTbd ? " · time TBC" : ` · ${kickoff.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`),
     ],
-    ["Venue", ready?.venue ?? (f.home ? "Emirates Stadium" : `Away at ${f.opponent.shortName}`)],
+    ["Venue", ready?.venue ?? (f.home ? team.venue ?? "Home" : `Away at ${f.opponent.shortName}`)],
   ];
   if (f.referee) info.push(["Referee", f.referee]);
   if (ready?.weather) info.push([f.status === "scheduled" ? "Forecast" : "Weather", ready.weather]);
@@ -101,12 +103,12 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
         </dl>
       </section>
 
-      {arsenalRow && opponentRow && f.competitionCode === "PL" && (
+      {teamRow && opponentRow && f.competitionCode === team.league && (
         <section>
           <SectionTitle>League position {f.status === "finished" ? "now" : ""}</SectionTitle>
           <div className="grid grid-cols-2 gap-2">
-            {[arsenalRow, opponentRow].map((row) => (
-              <div key={row.team.name} className={`rounded-xl p-3 ${row.isArsenal ? "bg-gunner/15 ring-1 ring-gunner/40" : "bg-panel"}`}>
+            {[teamRow, opponentRow].map((row) => (
+              <div key={row.team.name} className={`rounded-xl p-3 ${row.isTeam ? "bg-accent/15 ring-1 ring-accent/40" : "bg-panel"}`}>
                 <div className="flex items-center gap-2 text-[12.5px]">
                   <Crest team={row.team} size={18} />
                   <span className="truncate font-medium">{row.team.shortName}</span>
@@ -123,10 +125,10 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
 
       {form.length > 0 && (
         <section>
-          <SectionTitle>Arsenal form going in</SectionTitle>
+          <SectionTitle>{f.team.shortName} form going in</SectionTitle>
           <div className="flex items-center gap-1.5 rounded-xl bg-panel p-3">
             {form.map((g) => (
-              <span key={g.id} title={`${g.opponent.shortName} ${g.arsenalGoals}–${g.opponentGoals}`}>
+              <span key={g.id} title={`${g.opponent.shortName} ${g.teamGoals}–${g.opponentGoals}`}>
                 <OutcomeChip outcome={g.outcome} large />
               </span>
             ))}
@@ -149,7 +151,7 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
         ) : details.headToHead.played === 0 ? (
           <p className="rounded-xl bg-panel p-3.5 text-[12.5px] text-muted">No previous meetings on record.</p>
         ) : (
-          <HeadToHeadCard details={details} opponent={f.opponent.shortName} now={now} />
+          <HeadToHeadCard details={details} teamName={f.team.shortName} opponent={f.opponent.shortName} now={now} />
         )}
       </section>
 
@@ -193,14 +195,14 @@ function StatsStatus({ result, error, played, onRetry }: { result: StatsResult |
   ) : null;
 }
 
-function HeadToHeadCard({ details, opponent, now }: { details: MatchDetails; opponent: string; now: Date }) {
+function HeadToHeadCard({ details, teamName, opponent, now }: { details: MatchDetails; teamName: string; opponent: string; now: Date }) {
   const h = details.headToHead;
   const pct = (n: number) => `${(n / h.played) * 100}%`;
   return (
     <div className="space-y-3">
       <div className="rounded-xl bg-panel p-3.5">
         <div className="flex justify-between text-center">
-          <Stat value={h.wins} label="Arsenal wins" className="text-win" />
+          <Stat value={h.wins} label={`${teamName} wins`} className="text-win" />
           <Stat value={h.draws} label="Draws" className="text-draw" />
           <Stat value={h.losses} label={`${opponent} wins`} className="text-loss" />
         </div>

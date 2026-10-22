@@ -55,6 +55,8 @@ pub fn run() {
             commands::refresh_now,
             commands::get_match_details,
             commands::get_match_stats,
+            commands::list_leagues,
+            commands::list_teams,
             commands::test_notification,
         ])
         .run(tauri::generate_context!())

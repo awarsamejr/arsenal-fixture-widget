@@ -45,14 +45,14 @@ export function kickoffTime(f: Pick<Fixture, "kickoff" | "timeTbd">): string {
 
 /** Score with the home side first, e.g. "2–1". */
 export function scoreText(f: Fixture): string {
-  if (f.arsenalGoals == null || f.opponentGoals == null) return "–";
-  return f.home ? `${f.arsenalGoals}–${f.opponentGoals}` : `${f.opponentGoals}–${f.arsenalGoals}`;
+  if (f.teamGoals == null || f.opponentGoals == null) return "–";
+  return f.home ? `${f.teamGoals}–${f.opponentGoals}` : `${f.opponentGoals}–${f.teamGoals}`;
 }
 
-/** Score from Arsenal's side, e.g. "0–3" for a 3–0 away defeat. */
+/** Score from your team's side, e.g. "0–3" for a 3–0 away defeat. */
 export function ourScoreText(f: Fixture): string {
-  if (f.arsenalGoals == null || f.opponentGoals == null) return "–";
-  return `${f.arsenalGoals}–${f.opponentGoals}`;
+  if (f.teamGoals == null || f.opponentGoals == null) return "–";
+  return `${f.teamGoals}–${f.opponentGoals}`;
 }
 
 /** Short label for a competition: "PL", "UCL", "FA Cup"... */
@@ -121,7 +121,7 @@ export function stageLabel(f: Pick<Fixture, "stage" | "matchday">): string {
   return [stage, day].filter(Boolean).join(" · ");
 }
 
-/** Arsenal's last few results before a given kick-off, oldest first. */
+/** The team's last few results before a given kick-off, oldest first. */
 export function formBefore(fixtures: Fixture[], kickoff: string, count = 5): Fixture[] {
   const before = fixtures.filter((f) => f.status === "finished" && f.kickoff < kickoff);
   return before.slice(-count);
