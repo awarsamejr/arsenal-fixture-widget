@@ -119,7 +119,7 @@ function StatusBar({ snapshot }: { snapshot: Snapshot }) {
 function Welcome({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="flex flex-col items-center px-4 py-8 text-center">
-      <img src="/cannon.png" alt="" className="h-14 w-14" />
+      <img src="/logo.svg" alt="" className="h-14 w-14" />
       <h2 className="mt-4 font-display text-lg font-semibold">Welcome, Gooner</h2>
       <p className="mt-2 text-[13px] leading-relaxed text-muted">
         This widget gets its fixtures from football-data.org. Sign up for a free API key, then paste it in Settings.

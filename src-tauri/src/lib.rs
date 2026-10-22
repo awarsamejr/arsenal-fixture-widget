@@ -23,6 +23,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let handle = app.handle();
+            settings::migrate_from_old_name(handle);
             let settings = settings::load_settings(handle);
             let cache = settings::load_cache(handle);
             let always_on_top = settings.always_on_top;

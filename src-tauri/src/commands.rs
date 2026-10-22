@@ -71,8 +71,8 @@ pub fn save_settings<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>, 
 pub fn test_notification<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     app.notification()
         .builder()
-        .title("Arsenal Widget")
-        .body("Notifications are working. Come on you Gunners!")
+        .title("Matchnight")
+        .body("Notifications are working. Enjoy the match!")
         .show()
         .map_err(|e| e.to_string())
 }

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    arsenal_widget_lib::run()
+    matchnight_lib::run()
 }

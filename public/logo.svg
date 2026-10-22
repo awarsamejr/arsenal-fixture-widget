@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Matchnight app icon: a crescent moon cradling a football on a night sky.
+       Source for `npm run tauri icon app-icon.svg` and the in-app logo. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e2a5e" />
+      <stop offset="1" stop-color="#0a0f24" />
+    </linearGradient>
+    <linearGradient id="moon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe08a" />
+      <stop offset="1" stop-color="#f0b429" />
+    </linearGradient>
+    <mask id="crescent">
+      <rect width="1024" height="1024" fill="#fff" />
+      <circle cx="590" cy="390" r="300" fill="#000" />
+    </mask>
+    <clipPath id="ball">
+      <circle cx="640" cy="660" r="200" />
+    </clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" fill="url(#sky)" />
+
+  <!-- A few stars -->
+  <g fill="#ffffff" opacity="0.85">
+    <circle cx="760" cy="200" r="14" />
+    <circle cx="860" cy="330" r="9" />
+    <circle cx="690" cy="300" r="7" />
+  </g>
+
+  <!-- Crescent moon -->
+  <circle cx="450" cy="500" r="330" fill="url(#moon)" mask="url(#crescent)" />
+
+  <!-- Football -->
+  <circle cx="640" cy="660" r="200" fill="#ffffff" />
+  <g clip-path="url(#ball)" fill="#111827">
+    <polygon points="640,590 707,638 681,716 599,716 573,638" />
+    <polygon points="640,440 690,476 668,532 612,532 590,476" />
+    <polygon points="852,592 860,660 812,700 770,660 790,600" />
+    <polygon points="780,842 724,872 690,820 724,770 784,786" />
+    <polygon points="500,842 556,872 590,820 556,770 496,786" />
+    <polygon points="428,592 420,660 468,700 510,660 490,600" />
+  </g>
+  <g clip-path="url(#ball)" stroke="#111827" stroke-width="14" fill="none">
+    <path d="M640 590 V532 M707 638 L790 600 M681 716 L724 770 M599 716 L556 770 M573 638 L490 600" />
+  </g>
+  <circle cx="640" cy="660" r="200" fill="none" stroke="#0a0f24" stroke-width="10" />
+</svg>

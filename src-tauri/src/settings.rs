@@ -2,11 +2,11 @@
 //! (%APPDATA%\com.awarsamejr.arsenalwidget), never in the repo.
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_store::StoreExt;
 
 use crate::highlightly::MatchStats;
@@ -141,6 +141,30 @@ pub fn save_stats_cache<R: Runtime>(app: &AppHandle<R>, cache: &StatsCache) -> R
     save(app, STATS_FILE, "stats", cache)
 }
 
+/// The app used to be "Arsenal Widget" with a different identifier, so its
+/// data lived in another folder. Copies it over once so nothing is lost.
+pub fn migrate_from_old_name<R: Runtime>(app: &AppHandle<R>) {
+    let Ok(new_dir) = app.path().app_data_dir() else { return };
+    let Some(old_dir) = new_dir.parent().map(|p| p.join("com.awarsamejr.arsenalwidget")) else { return };
+    if let Err(e) = copy_data_files(&old_dir, &new_dir) {
+        eprintln!("couldn't migrate old settings: {e}");
+    }
+}
+
+fn copy_data_files(old_dir: &Path, new_dir: &Path) -> std::io::Result<()> {
+    if !old_dir.is_dir() || new_dir.join(SETTINGS_FILE).exists() {
+        return Ok(());
+    }
+    std::fs::create_dir_all(new_dir)?;
+    for file in [SETTINGS_FILE, CACHE_FILE, STATS_FILE] {
+        let from = old_dir.join(file);
+        if from.exists() {
+            std::fs::copy(&from, new_dir.join(file))?;
+        }
+    }
+    Ok(())
+}
+
 pub fn load_settings<R: Runtime>(app: &AppHandle<R>) -> Settings {
     load(app, SETTINGS_FILE, "settings")
 }
@@ -167,6 +191,27 @@ mod tests {
         assert_eq!(s.refresh_minutes, 5);
         assert_eq!(s.reminder_minutes, vec![1440, 60, 0]);
         assert!(s.always_on_top);
+    }
+
+    #[test]
+    fn copies_old_data_once() {
+        let root = std::env::temp_dir().join(format!("matchnight-migrate-{}", std::process::id()));
+        let (old, new) = (root.join("old"), root.join("new"));
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(old.join(SETTINGS_FILE), "old settings").unwrap();
+        std::fs::write(old.join(CACHE_FILE), "old cache").unwrap();
+
+        copy_data_files(&old, &new).unwrap();
+        assert_eq!(std::fs::read_to_string(new.join(SETTINGS_FILE)).unwrap(), "old settings");
+        assert_eq!(std::fs::read_to_string(new.join(CACHE_FILE)).unwrap(), "old cache");
+        assert!(!new.join(STATS_FILE).exists());
+
+        // Never overwrites once the new folder has settings
+        std::fs::write(new.join(SETTINGS_FILE), "new settings").unwrap();
+        copy_data_files(&old, &new).unwrap();
+        assert_eq!(std::fs::read_to_string(new.join(SETTINGS_FILE)).unwrap(), "new settings");
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

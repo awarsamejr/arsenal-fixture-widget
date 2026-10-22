@@ -25,7 +25,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, always_on_top: bool) -> tauri::Res
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("app icon missing"))
-        .tooltip("Arsenal Widget")
+        .tooltip("Matchnight")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
@@ -85,7 +85,7 @@ pub fn update_tooltip<R: Runtime>(app: &AppHandle<R>, snapshot: &Snapshot) {
             let when = if f.time_tbd { when.format("%a %-d %b").to_string() } else { when.format("%a %-d %b, %H:%M").to_string() };
             format!("Next: {}\n{} · {}", f.title(), when, f.competition)
         }
-        None => "Arsenal Widget".into(),
+        None => "Matchnight".into(),
     };
     let _ = tray.set_tooltip(Some(text));
 }

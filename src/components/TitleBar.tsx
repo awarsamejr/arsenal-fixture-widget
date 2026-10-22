@@ -11,9 +11,9 @@ export function TitleBar({ pinned, onTogglePin }: Props) {
   const button = "grid h-8 w-8 place-items-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-white";
   return (
     <header data-tauri-drag-region className="flex h-11 shrink-0 items-center gap-2 pl-3 pr-1.5">
-      <img src="/cannon.png" alt="" className="pointer-events-none h-6 w-6" draggable={false} />
+      <img src="/logo.svg" alt="" className="pointer-events-none h-6 w-6" draggable={false} />
       <h1 data-tauri-drag-region className="font-display text-[15px] font-semibold tracking-tight">
-        Arsenal <span className="font-normal text-muted">Widget</span>
+        Matchnight
       </h1>
       <div data-tauri-drag-region className="flex-1 self-stretch" />
       <button

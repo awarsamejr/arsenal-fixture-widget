@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Arsenal Widget",
-  "mainBinaryName": "arsenal-widget",
-  "version": "2.0.0",
-  "identifier": "com.awarsamejr.arsenalwidget",
+  "productName": "Matchnight",
+  "mainBinaryName": "matchnight",
+  "version": "3.0.0",
+  "identifier": "com.awarsamejr.matchnight",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Arsenal Widget",
+        "title": "Matchnight",
         "width": 380,
         "height": 600,
         "minWidth": 340,
@@ -32,8 +32,8 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "shortDescription": "Arsenal Widget",
-    "longDescription": "Arsenal fixtures, results, league table and match reminders on your desktop.",
+    "shortDescription": "Matchnight",
+    "longDescription": "Your team's fixtures, live scores, stats, table and match reminders on your desktop.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
