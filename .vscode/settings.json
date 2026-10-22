@@ -1,5 +1,5 @@
 {
-    "workbench.colorTheme": "Default Dark+",
+    "workbench.colorTheme": "Dark+",
     "java.compile.nullAnalysis.nonnull": [
         "javax.annotation.Nonnull",
         "org.eclipse.jdt.annotation.NonNull",
