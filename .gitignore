@@ -1,9 +1,19 @@
-*.class       # Ignore compiled Java class files
-*.jar         # Ignore Java archive files
-*.log         # Ignore log files
-.idea/        # Ignore IntelliJ IDEA project settings
-*.iml         # Ignore IntelliJ module files
-api_key.txt   #user must use his own api key
-*.exe         # ignore personal generated program  
-arsenal-widget.jar         #user can build these there  selves  
+# Compiled Java class files
+*.class
+bin/
+
+# Build outputs (users build these themselves)
+*.jar
+!lib/*.jar
+*.exe
+
+# Your own API key - never commit this
+api_key.txt
+
+# Logs and IDE files
+*.log
+.idea/
+*.iml
+
+# Build setup file (see README)
 MANIFEST.MF
