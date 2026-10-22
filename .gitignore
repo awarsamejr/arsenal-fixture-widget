@@ -6,6 +6,7 @@ src-tauri/gen/schemas/
 
 # Your own API key - never commit this
 api_key.txt
+highlightly_key.txt
 
 # Leftovers from the old Java version
 *.class

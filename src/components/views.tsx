@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { openLink } from "../lib/api";
 import { countdown, headlineFixture, isLive, matchesSearch, recentResults, upcomingFixtures } from "../lib/format";
 import { useNow } from "../lib/hooks";
-import type { Settings, Snapshot } from "../lib/types";
+import type { Fixture, Settings, Snapshot } from "../lib/types";
 import { Crest } from "./Crest";
 import { FixtureRow, OutcomeChip } from "./FixtureRow";
 import { ExternalIcon, SearchIcon, TvIcon } from "./icons";
@@ -23,7 +23,9 @@ export function SectionTitle({ children }: { children: React.ReactNode }) {
 
 // ---------- Next ----------
 
-export function NextView({ snapshot }: { snapshot: Snapshot }) {
+type OpenMatch = (f: Fixture) => void;
+
+export function NextView({ snapshot, onOpen }: { snapshot: Snapshot; onOpen: OpenMatch }) {
   const now = useNow(1000);
   const [query, setQuery] = useState("");
   const headline = headlineFixture(snapshot.fixtures);
@@ -38,7 +40,11 @@ export function NextView({ snapshot }: { snapshot: Snapshot }) {
 
   return (
     <div className="space-y-4">
-      {headline ? <NextMatchHero fixture={headline} now={now} /> : <EmptyState title="No upcoming matches" />}
+      {headline ? (
+        <NextMatchHero fixture={headline} now={now} onOpen={() => onOpen(headline)} />
+      ) : (
+        <EmptyState title="No upcoming matches" />
+      )}
 
       <div>
         <div className="flex items-center justify-between gap-2">
@@ -54,7 +60,7 @@ export function NextView({ snapshot }: { snapshot: Snapshot }) {
           </label>
         </div>
         {upcoming.length ? (
-          <ul className="-mx-1">{upcoming.map((f) => <FixtureRow key={f.id} fixture={f} now={now} />)}</ul>
+          <ul className="-mx-1">{upcoming.map((f) => <FixtureRow key={f.id} fixture={f} now={now} onOpen={onOpen} />)}</ul>
         ) : (
           <EmptyState title={query ? `No matches against "${query}"` : "Nothing else scheduled yet"} />
         )}
@@ -65,7 +71,7 @@ export function NextView({ snapshot }: { snapshot: Snapshot }) {
 
 // ---------- Results ----------
 
-export function ResultsView({ snapshot }: { snapshot: Snapshot }) {
+export function ResultsView({ snapshot, onOpen }: { snapshot: Snapshot; onOpen: OpenMatch }) {
   const now = useNow(60_000);
   const results = recentResults(snapshot.fixtures);
   if (!results.length) return <EmptyState title="No results yet this season" />;
@@ -90,7 +96,7 @@ export function ResultsView({ snapshot }: { snapshot: Snapshot }) {
       </section>
       <div>
         <SectionTitle>Recent results</SectionTitle>
-        <ul className="-mx-1">{results.map((f) => <FixtureRow key={f.id} fixture={f} now={now} />)}</ul>
+        <ul className="-mx-1">{results.map((f) => <FixtureRow key={f.id} fixture={f} now={now} onOpen={onOpen} />)}</ul>
       </div>
     </div>
   );

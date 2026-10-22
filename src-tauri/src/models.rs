@@ -19,10 +19,26 @@ pub struct ApiMatch {
     pub id: u64,
     pub utc_date: DateTime<Utc>,
     pub status: String,
+    pub matchday: Option<u32>,
+    pub stage: Option<String>,
     pub competition: ApiCompetition,
     pub home_team: ApiTeam,
     pub away_team: ApiTeam,
     pub score: ApiScore,
+    #[serde(default)]
+    pub referees: Vec<ApiReferee>,
+}
+
+#[derive(Deserialize)]
+pub struct ApiReferee {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub kind: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct HeadToHeadResponse {
+    pub matches: Vec<ApiMatch>,
 }
 
 #[derive(Deserialize)]
@@ -46,6 +62,8 @@ pub struct ApiTeam {
 #[serde(rename_all = "camelCase")]
 pub struct ApiScore {
     pub full_time: Goals,
+    #[serde(default)]
+    pub half_time: Goals,
 }
 
 #[derive(Deserialize, Default)]
@@ -153,6 +171,17 @@ pub struct Fixture {
     pub arsenal_goals: Option<u32>,
     pub opponent_goals: Option<u32>,
     pub outcome: Option<Outcome>,
+    #[serde(default)]
+    pub half_time_arsenal: Option<u32>,
+    #[serde(default)]
+    pub half_time_opponent: Option<u32>,
+    #[serde(default)]
+    pub matchday: Option<u32>,
+    /// e.g. "REGULAR_SEASON", "LEAGUE_STAGE", "QUARTER_FINALS"
+    #[serde(default)]
+    pub stage: Option<String>,
+    #[serde(default)]
+    pub referee: Option<String>,
 }
 
 impl Fixture {
@@ -166,11 +195,14 @@ impl Fixture {
             return None;
         };
         let (us, them) = if home { (&m.home_team, &m.away_team) } else { (&m.away_team, &m.home_team) };
-        let (arsenal_goals, opponent_goals) = if home {
-            (m.score.full_time.home, m.score.full_time.away)
-        } else {
-            (m.score.full_time.away, m.score.full_time.home)
-        };
+        let ours_first = |g: &Goals| if home { (g.home, g.away) } else { (g.away, g.home) };
+        let (arsenal_goals, opponent_goals) = ours_first(&m.score.full_time);
+        let (half_time_arsenal, half_time_opponent) = ours_first(&m.score.half_time);
+        let referee = m
+            .referees
+            .iter()
+            .find(|r| r.kind.as_deref().is_none_or(|k| k == "REFEREE"))
+            .map(|r| r.name.clone());
         let status = MatchStatus::from_api(&m.status);
         let outcome = match (status, arsenal_goals, opponent_goals) {
             (MatchStatus::Finished, Some(a), Some(o)) => Some(if a > o {
@@ -197,6 +229,11 @@ impl Fixture {
             arsenal_goals,
             opponent_goals,
             outcome,
+            half_time_arsenal,
+            half_time_opponent,
+            matchday: m.matchday,
+            stage: m.stage.clone(),
+            referee,
         })
     }
 
@@ -247,6 +284,48 @@ impl From<&ApiTableRow> for TableRow {
             points: r.points,
             is_arsenal: r.team.id == Some(ARSENAL_ID),
         }
+    }
+}
+
+/// Arsenal's record against one opponent, from Arsenal's point of view.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadToHead {
+    pub played: u32,
+    pub wins: u32,
+    pub draws: u32,
+    pub losses: u32,
+    pub goals_for: u32,
+    pub goals_against: u32,
+}
+
+/// Extra information loaded when a match is opened.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchDetails {
+    pub fixture_id: u64,
+    pub head_to_head: HeadToHead,
+    /// Previous meetings, newest first (not including this match)
+    pub meetings: Vec<Fixture>,
+}
+
+impl MatchDetails {
+    pub fn new(fixture_id: u64, mut meetings: Vec<Fixture>) -> Self {
+        meetings.retain(|f| f.id != fixture_id && f.status == MatchStatus::Finished);
+        meetings.sort_by_key(|f| std::cmp::Reverse(f.kickoff));
+        let mut h2h = HeadToHead::default();
+        for f in &meetings {
+            h2h.played += 1;
+            h2h.goals_for += f.arsenal_goals.unwrap_or(0);
+            h2h.goals_against += f.opponent_goals.unwrap_or(0);
+            match f.outcome {
+                Some(Outcome::Win) => h2h.wins += 1,
+                Some(Outcome::Draw) => h2h.draws += 1,
+                Some(Outcome::Loss) => h2h.losses += 1,
+                None => {}
+            }
+        }
+        Self { fixture_id, head_to_head: h2h, meetings }
     }
 }
 

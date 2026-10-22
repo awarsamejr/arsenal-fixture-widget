@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { openLink, refreshNow, saveSettings } from "./lib/api";
 import { updatedAgo } from "./lib/format";
 import { useAppData, useNow } from "./lib/hooks";
-import type { Snapshot } from "./lib/types";
+import type { Fixture, Snapshot } from "./lib/types";
 import { AlertIcon, RefreshIcon, SettingsIcon } from "./components/icons";
+import { MatchDetailView } from "./components/MatchDetailView";
 import { SettingsView } from "./components/SettingsView";
 import { TitleBar } from "./components/TitleBar";
 import { NextView, ResultsView, TableView, WatchView } from "./components/views";
@@ -19,13 +20,28 @@ const TABS: { id: Exclude<Tab, "settings">; label: string }[] = [
 
 export default function App() {
   const { snapshot, settings } = useAppData();
-  const [tab, setTab] = useState<Tab>("next");
+  const [tab, setTabState] = useState<Tab>("next");
+  // The match whose details are open, if any (looked up by id so live updates show)
+  const [openMatchId, setOpenMatchId] = useState<number | null>(null);
+  const scroller = useRef<HTMLElement>(null);
+
+  const setTab = (t: Tab) => {
+    setOpenMatchId(null);
+    setTabState(t);
+  };
+  const closeMatch = useCallback(() => setOpenMatchId(null), []);
+  const openMatch = useCallback((f: Fixture) => setOpenMatchId(f.id), []);
+
+  useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = 0;
+  }, [openMatchId]);
 
   if (!snapshot || !settings) {
     return <div className="grid h-full place-items-center text-muted">Loading…</div>;
   }
 
   const needsKey = !snapshot.hasApiKey && tab !== "settings";
+  const openMatchFixture = snapshot.fixtures.find((f) => f.id === openMatchId);
 
   return (
     <div className="flex h-full flex-col">
@@ -52,13 +68,15 @@ export default function App() {
         </button>
       </nav>
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-3 pt-1">
+      <main ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-3 pt-1">
         {needsKey ? (
           <Welcome onOpenSettings={() => setTab("settings")} />
+        ) : openMatchFixture ? (
+          <MatchDetailView fixture={openMatchFixture} snapshot={snapshot} onBack={closeMatch} />
         ) : (
           <>
-            {tab === "next" && <NextView snapshot={snapshot} />}
-            {tab === "results" && <ResultsView snapshot={snapshot} />}
+            {tab === "next" && <NextView snapshot={snapshot} onOpen={openMatch} />}
+            {tab === "results" && <ResultsView snapshot={snapshot} onOpen={openMatch} />}
             {tab === "table" && <TableView snapshot={snapshot} />}
             {tab === "watch" && <WatchView snapshot={snapshot} settings={settings} onOpenSettings={() => setTab("settings")} />}
             {tab === "settings" && <SettingsView settings={settings} hasApiKey={snapshot.hasApiKey} />}

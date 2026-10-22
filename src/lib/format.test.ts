@@ -3,7 +3,9 @@ import {
   competitionShort,
   countdown,
   dayLabel,
+  formBefore,
   headlineFixture,
+  stageLabel,
   matchesSearch,
   ourScoreText,
   recentResults,
@@ -26,6 +28,11 @@ const base: Fixture = {
   arsenalGoals: null,
   opponentGoals: null,
   outcome: null,
+  halfTimeArsenal: null,
+  halfTimeOpponent: null,
+  matchday: null,
+  stage: null,
+  referee: null,
 };
 
 describe("countdown", () => {
@@ -89,6 +96,24 @@ describe("matchesSearch", () => {
     expect(matchesSearch(base, "premier")).toBe(true);
     expect(matchesSearch(base, "chelsea")).toBe(false);
     expect(matchesSearch(base, "  ")).toBe(true);
+  });
+});
+
+describe("stageLabel", () => {
+  it("names the round and matchday", () => {
+    expect(stageLabel({ stage: "REGULAR_SEASON", matchday: 8 })).toBe("Matchday 8");
+    expect(stageLabel({ stage: "LEAGUE_STAGE", matchday: 3 })).toBe("League stage · Matchday 3");
+    expect(stageLabel({ stage: "QUARTER_FINALS", matchday: null })).toBe("Quarter-finals");
+    expect(stageLabel({ stage: "FINAL", matchday: null })).toBe("Final");
+    expect(stageLabel({ stage: null, matchday: null })).toBe("");
+  });
+});
+
+describe("formBefore", () => {
+  it("takes only results before the match, oldest first", () => {
+    const games = [1, 2, 3, 4, 5, 6, 7].map((d) => ({ ...base, id: d, status: "finished" as const, kickoff: `2026-10-0${d}T14:00:00Z` }));
+    expect(formBefore(games, "2026-10-06T14:00:00Z").map((f) => f.id)).toEqual([1, 2, 3, 4, 5]);
+    expect(formBefore(games, "2026-10-03T14:00:00Z", 5).map((f) => f.id)).toEqual([1, 2]);
   });
 });
 

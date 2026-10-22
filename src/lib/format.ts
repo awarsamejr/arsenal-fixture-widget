@@ -25,11 +25,16 @@ export function dayLabel(iso: string, now: Date = new Date()): string {
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Tomorrow";
   if (diffDays === -1) return "Yesterday";
-  return shortDate(iso);
+  return shortDate(iso, now);
 }
 
-export function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+/** "Sat 24 Oct", or "14 Mar 2025" for other years (head-to-head goes back seasons). */
+export function shortDate(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (date.getFullYear() !== now.getFullYear()) {
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+  return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
 /** "15:00", or "TBC" while only the date is confirmed. */
@@ -92,6 +97,34 @@ export function matchesSearch(f: Fixture, query: string): boolean {
   const aliases: Record<string, string> = { spurs: "tottenham", villa: "aston villa", toon: "newcastle", "man u": "manchester united", "man utd": "manchester united" };
   const term = aliases[q] ?? q;
   return [f.opponent.name, f.opponent.shortName, f.competition].some((s) => s.toLowerCase().includes(term));
+}
+
+/** "Matchday 8", "League stage · Matchday 3", "Quarter-finals" */
+const STAGES: Record<string, string> = {
+  LEAGUE_STAGE: "League stage",
+  GROUP_STAGE: "Group stage",
+  PLAYOFFS: "Play-offs",
+  LAST_32: "Round of 32",
+  LAST_16: "Round of 16",
+  ROUND_OF_16: "Round of 16",
+  QUARTER_FINALS: "Quarter-finals",
+  SEMI_FINALS: "Semi-finals",
+  FINAL: "Final",
+};
+
+export function stageLabel(f: Pick<Fixture, "stage" | "matchday">): string {
+  const stage =
+    f.stage && f.stage !== "REGULAR_SEASON"
+      ? STAGES[f.stage] ?? f.stage.charAt(0) + f.stage.slice(1).toLowerCase().replace(/_/g, " ")
+      : null;
+  const day = f.matchday ? `Matchday ${f.matchday}` : null;
+  return [stage, day].filter(Boolean).join(" · ");
+}
+
+/** Arsenal's last few results before a given kick-off, oldest first. */
+export function formBefore(fixtures: Fixture[], kickoff: string, count = 5): Fixture[] {
+  const before = fixtures.filter((f) => f.status === "finished" && f.kickoff < kickoff);
+  return before.slice(-count);
 }
 
 /** "just now", "5 min ago", "2 h ago" */

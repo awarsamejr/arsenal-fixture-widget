@@ -230,6 +230,11 @@ mod tests {
             arsenal_goals: None,
             opponent_goals: None,
             outcome: None,
+            half_time_arsenal: None,
+            half_time_opponent: None,
+            matchday: None,
+            stage: None,
+            referee: None,
         }
     }
 

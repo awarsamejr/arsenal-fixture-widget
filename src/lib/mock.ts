@@ -1,7 +1,7 @@
 // Sample data for previewing the UI in a browser (`npm run dev`).
 // Add ?live, ?nokey or ?error to the URL to see those states.
 
-import type { Fixture, Settings, Snapshot, TableRow, TeamInfo } from "./types";
+import type { Fixture, MatchDetails, Settings, Snapshot, TableRow, TeamInfo } from "./types";
 
 const params = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
 const crest = (id: number) => `https://crests.football-data.org/${id}.png`;
@@ -44,6 +44,11 @@ function fixture(offsetMs: number, opponent: TeamInfo, home: boolean, comp: type
     arsenalGoals: a,
     opponentGoals: o,
     outcome: score ? (score[0] > score[1] ? "win" : score[0] < score[1] ? "loss" : "draw") : null,
+    halfTimeArsenal: score ? Math.min(score[0], 1) : null,
+    halfTimeOpponent: score ? Math.min(score[1], 1) : null,
+    matchday: comp.competitionCode === "PL" ? 8 : 3,
+    stage: comp.competitionCode === "PL" ? "REGULAR_SEASON" : "LEAGUE_STAGE",
+    referee: score ? "Michael Oliver" : null,
   };
 }
 
@@ -114,6 +119,31 @@ let settings: Settings = {
 
 const snapshotListeners = new Set<(s: Snapshot) => void>();
 const settingsListeners = new Set<(s: Settings) => void>();
+
+export async function getMatchDetails(fixtureId: number): Promise<MatchDetails> {
+  await new Promise((r) => setTimeout(r, 600)); // feel the loading state
+  const f = snapshot.fixtures.find((x) => x.id === fixtureId);
+  if (!f) throw "Match not found";
+  const scores: [number, number][] = [[2, 0], [1, 1], [0, 1], [3, 1], [2, 2], [1, 0]];
+  const meetings = scores.map(([a, o], i) => ({
+    ...fixture(-(200 + i * 180) * DAY, f.opponent, i % 2 === 0, PL, [a, o]),
+    status: "finished" as const,
+  }));
+  const wins = scores.filter(([a, o]) => a > o).length;
+  const draws = scores.filter(([a, o]) => a === o).length;
+  return {
+    fixtureId,
+    headToHead: {
+      played: scores.length,
+      wins,
+      draws,
+      losses: scores.length - wins - draws,
+      goalsFor: scores.reduce((n, [a]) => n + a, 0),
+      goalsAgainst: scores.reduce((n, [, o]) => n + o, 0),
+    },
+    meetings,
+  };
+}
 
 export const getSnapshot = async () => snapshot;
 export const getSettings = async () => settings;

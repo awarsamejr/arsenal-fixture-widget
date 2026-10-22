@@ -1,14 +1,14 @@
 //! Shared app state, guarded by a mutex. Every change goes through here so
 //! the UI, tray and on-disk cache always stay in step.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, MutexGuard};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::Notify;
 
-use crate::models::{Fixture, Snapshot};
+use crate::models::{Fixture, MatchDetails, Snapshot};
 use crate::scheduler::Notice;
 use crate::settings::{self, Cache, Settings};
 use crate::tray;
@@ -27,7 +27,12 @@ pub struct AppState {
     inner: Mutex<Inner>,
     /// Wakes the scheduler early, e.g. for Refresh or after settings change
     pub wake: Notify,
+    /// Match details already loaded this session, to save API requests
+    details: Mutex<HashMap<u64, (MatchDetails, DateTime<Utc>)>>,
 }
+
+/// Head-to-head only changes when the two teams meet again
+const DETAILS_MAX_AGE: Duration = Duration::hours(6);
 
 impl AppState {
     pub fn new(settings: Settings, mut cache: Cache) -> Self {
@@ -36,7 +41,21 @@ impl AppState {
         Self {
             inner: Mutex::new(Inner { settings, cache, next_fetch: None, table_fetched_at: None }),
             wake: Notify::new(),
+            details: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub fn cached_details(&self, fixture_id: u64) -> Option<MatchDetails> {
+        let cache = self.details.lock().unwrap_or_else(|p| p.into_inner());
+        cache
+            .get(&fixture_id)
+            .filter(|(_, at)| Utc::now() - *at < DETAILS_MAX_AGE)
+            .map(|(d, _)| d.clone())
+    }
+
+    pub fn store_details(&self, details: MatchDetails) {
+        let mut cache = self.details.lock().unwrap_or_else(|p| p.into_inner());
+        cache.insert(details.fixture_id, (details, Utc::now()));
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {

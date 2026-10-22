@@ -44,11 +44,17 @@ export function OutcomeChip({ outcome, large = false }: { outcome: Fixture["outc
   );
 }
 
-/** One line in the upcoming or results list. */
-export function FixtureRow({ fixture: f, now }: { fixture: Fixture; now: Date }) {
+/** One line in the upcoming or results list; clickable when `onOpen` is given. */
+export function FixtureRow({ fixture: f, now, onOpen }: { fixture: Fixture; now: Date; onOpen?: (f: Fixture) => void }) {
   const played = f.status === "finished";
   return (
-    <li className="flex items-center gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-panel-2">
+    <li
+      className={`flex items-center gap-3 rounded-lg px-2.5 py-2 transition-colors ${onOpen ? "cursor-pointer hover:bg-panel-2" : ""}`}
+      onClick={onOpen && (() => onOpen(f))}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={onOpen && ((e) => (e.key === "Enter" || e.key === " ") && onOpen(f))}
+    >
       <div className="w-[68px] shrink-0 leading-tight">
         <div className="text-[11px] text-muted">{played ? shortDate(f.kickoff) : dayLabel(f.kickoff, now)}</div>
         <div className="text-[13px] font-semibold tabular-nums">

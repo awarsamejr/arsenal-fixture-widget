@@ -24,6 +24,28 @@ export interface Fixture {
   arsenalGoals: number | null;
   opponentGoals: number | null;
   outcome: Outcome | null;
+  halfTimeArsenal: number | null;
+  halfTimeOpponent: number | null;
+  matchday: number | null;
+  /** e.g. "REGULAR_SEASON", "LEAGUE_STAGE", "QUARTER_FINALS" */
+  stage: string | null;
+  referee: string | null;
+}
+
+export interface HeadToHead {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+}
+
+export interface MatchDetails {
+  fixtureId: number;
+  headToHead: HeadToHead;
+  /** Previous meetings, newest first */
+  meetings: Fixture[];
 }
 
 export interface TableRow {

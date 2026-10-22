@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use reqwest::StatusCode;
 
-use crate::models::{Fixture, MatchesResponse, StandingsResponse, TableRow, ARSENAL_ID};
+use crate::models::{
+    Fixture, HeadToHeadResponse, MatchDetails, MatchesResponse, StandingsResponse, TableRow, ARSENAL_ID,
+};
 
 const BASE_URL: &str = "https://api.football-data.org/v4";
 
@@ -67,6 +69,19 @@ impl Client {
         let body = self.get("/competitions/PL/standings", key).await?;
         parse_table(&body)
     }
+
+    /// The last 10 meetings between the two teams in this match.
+    pub async fn fetch_match_details(&self, key: &str, match_id: u64) -> Result<MatchDetails, ApiError> {
+        let body = self.get(&format!("/matches/{match_id}/head2head?limit=10"), key).await?;
+        parse_match_details(&body, match_id)
+    }
+}
+
+pub fn parse_match_details(body: &str, match_id: u64) -> Result<MatchDetails, ApiError> {
+    let response: HeadToHeadResponse =
+        serde_json::from_str(body).map_err(|e| ApiError::Unexpected(format!("bad head-to-head data: {e}")))?;
+    let meetings = response.matches.iter().filter_map(Fixture::from_api).collect();
+    Ok(MatchDetails::new(match_id, meetings))
 }
 
 pub fn parse_fixtures(body: &str) -> Result<Vec<Fixture>, ApiError> {
@@ -146,6 +161,31 @@ mod tests {
         assert_eq!(table.len(), 20);
         assert_eq!(table[0].position, 1);
         assert_eq!(table.iter().filter(|r| r.is_arsenal).count(), 1);
+    }
+
+    #[test]
+    fn reads_half_time_referee_and_matchday() {
+        let fixtures = parse_fixtures(MATCHES).unwrap();
+        let first = &fixtures[0];
+        assert_eq!((first.half_time_arsenal, first.half_time_opponent), (Some(2), Some(0)));
+        assert_eq!(first.referee.as_deref(), Some("Thomas Bramall"));
+        assert_eq!(first.matchday, Some(1));
+        assert!(fixtures.iter().filter(|f| f.status == MatchStatus::Scheduled).all(|f| f.half_time_arsenal.is_none()));
+    }
+
+    #[test]
+    fn builds_head_to_head_from_arsenals_side() {
+        // Upcoming Arsenal v Everton; previous meetings include home and away games
+        let details = parse_match_details(include_str!("../testdata/head2head.json"), 560616).unwrap();
+        let h = &details.head_to_head;
+        assert_eq!(h.played as usize, details.meetings.len());
+        assert_eq!(h.wins + h.draws + h.losses, h.played);
+        assert!(details.meetings.iter().all(|m| m.id != 560616 && m.opponent.short_name == "Everton"));
+        assert!(details.meetings.windows(2).all(|w| w[0].kickoff >= w[1].kickoff), "newest first");
+
+        // Everton 0-1 Arsenal (Dec 2025) must count as a win with goals the right way round
+        let away_win = details.meetings.iter().find(|m| m.kickoff.format("%Y-%m-%d").to_string() == "2025-12-20").unwrap();
+        assert_eq!((away_win.arsenal_goals, away_win.opponent_goals, away_win.outcome), (Some(1), Some(0), Some(Outcome::Win)));
     }
 
     #[test]

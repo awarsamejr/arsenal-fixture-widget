@@ -25,6 +25,7 @@ pub fn run() {
             let cache = settings::load_cache(handle);
             let always_on_top = settings.always_on_top;
             app.manage(AppState::new(settings, cache));
+            app.manage(api::Client::new()); // for requests the UI makes, like match details
 
             if let Some(window) = app.get_webview_window("main") {
                 window.set_always_on_top(always_on_top)?;
@@ -47,6 +48,7 @@ pub fn run() {
             commands::get_settings,
             commands::save_settings,
             commands::refresh_now,
+            commands::get_match_details,
             commands::test_notification,
         ])
         .run(tauri::generate_context!())

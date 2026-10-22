@@ -3,7 +3,8 @@
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tauri_plugin_notification::NotificationExt;
 
-use crate::models::Snapshot;
+use crate::api::Client;
+use crate::models::{MatchDetails, Snapshot};
 use crate::settings::{self, Settings};
 use crate::state::AppState;
 use crate::tray;
@@ -23,6 +24,21 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 #[tauri::command]
 pub fn refresh_now(state: State<'_, AppState>) {
     state.request_refresh();
+}
+
+#[tauri::command]
+pub async fn get_match_details(
+    state: State<'_, AppState>,
+    client: State<'_, Client>,
+    fixture_id: u64,
+) -> Result<MatchDetails, String> {
+    if let Some(details) = state.cached_details(fixture_id) {
+        return Ok(details);
+    }
+    let key = state.settings().effective_api_key().ok_or("Add an API key in Settings first.")?;
+    let details = client.fetch_match_details(&key, fixture_id).await.map_err(|e| e.user_message())?;
+    state.store_details(details.clone());
+    Ok(details)
 }
 
 #[tauri::command]
