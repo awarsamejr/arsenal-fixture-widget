@@ -1,0 +1,6 @@
+# Cloudflare Pages settings for the Matchnight website.
+# Secrets (FOOTBALL_DATA_KEY, HIGHLIGHTLY_KEY, ACCESS_CODE) are set in the
+# Cloudflare dashboard, or in .dev.vars for local testing; never here.
+name = "matchnight"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-10-01"

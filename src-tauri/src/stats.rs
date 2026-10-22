@@ -133,10 +133,12 @@ pub async fn get_stats<R: Runtime>(app: &AppHandle<R>, fixture_id: u64) -> Resul
 
     {
         let mut cache = store.0.lock().unwrap_or_else(|p| p.into_inner());
-        cache.highlightly_team = Some(match confirmed_team {
-            Some(id) => vec![id],
-            None => candidates,
-        });
+        // An empty search isn't remembered, so it's tried again next time
+        cache.highlightly_team = match confirmed_team {
+            Some(id) => Some(vec![id]),
+            None if candidates.is_empty() => None,
+            None => Some(candidates),
+        };
         cache.entries.insert(
             fixture_id,
             StatsEntry {

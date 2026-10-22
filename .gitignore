@@ -21,3 +21,7 @@ MANIFEST.MF
 .idea/
 .DS_Store
 *.tsbuildinfo
+
+# Local Cloudflare secrets and state
+.dev.vars
+.wrangler/

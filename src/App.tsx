@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openLink, refreshNow, saveSettings } from "./lib/api";
 import { updatedAgo } from "./lib/format";
+import { isDesktopApp, isMobile } from "./lib/platform";
 import { applyAccent } from "./lib/teamColors";
 import { useAppData, useNow } from "./lib/hooks";
 import type { Fixture, Snapshot } from "./lib/types";
+import { Crest } from "./components/Crest";
 import { AlertIcon, RefreshIcon, SettingsIcon } from "./components/icons";
 import { MatchDetailView } from "./components/MatchDetailView";
 import { MiniStrip } from "./components/MiniStrip";
@@ -28,11 +30,25 @@ export default function App() {
   const scroller = useRef<HTMLElement>(null);
 
   const setTab = (t: Tab) => {
+    if (history.state?.match != null) history.back();
     setOpenMatchId(null);
     setTabState(t);
   };
-  const closeMatch = useCallback(() => setOpenMatchId(null), []);
-  const openMatch = useCallback((f: Fixture) => setOpenMatchId(f.id), []);
+  // Opening a match adds a history entry, so the phone's back button
+  // (and the browser's) closes it instead of leaving the app
+  const openMatch = useCallback((f: Fixture) => {
+    history.pushState({ match: f.id }, "");
+    setOpenMatchId(f.id);
+  }, []);
+  const closeMatch = useCallback(() => {
+    if (history.state?.match != null) history.back();
+    else setOpenMatchId(null);
+  }, []);
+  useEffect(() => {
+    const onPop = () => setOpenMatchId(history.state?.match ?? null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = 0;
@@ -45,14 +61,21 @@ export default function App() {
     return <div className="grid h-full place-items-center text-muted">Loading…</div>;
   }
 
-  if (settings.miniMode) return <MiniStrip snapshot={snapshot} />;
+  if (settings.miniMode && isDesktopApp) return <MiniStrip snapshot={snapshot} />;
 
   const needsKey = !snapshot.hasApiKey && tab !== "settings";
   const openMatchFixture = snapshot.fixtures.find((f) => f.id === openMatchId);
 
   return (
-    <div className="flex h-full flex-col">
-      <TitleBar team={settings.team} pinned={settings.alwaysOnTop} onTogglePin={() => saveSettings({ ...settings, alwaysOnTop: !settings.alwaysOnTop })} />
+    <div className={`flex h-full flex-col ${isDesktopApp ? "" : "mx-auto w-full max-w-md pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"}`}>
+      {!isDesktopApp ? (
+        <header className="flex h-12 shrink-0 items-center gap-2.5 px-4">
+          <Crest team={settings.team} size={24} />
+          <h1 className="font-display text-[17px] font-semibold tracking-tight">Matchnight</h1>
+        </header>
+      ) : (
+        <TitleBar team={settings.team} pinned={settings.alwaysOnTop} onTogglePin={() => saveSettings({ ...settings, alwaysOnTop: !settings.alwaysOnTop })} />
+      )}
 
       <nav className="flex shrink-0 items-center gap-1 px-3 pb-2">
         <div className="flex flex-1 gap-0.5 rounded-lg bg-panel p-0.5">
@@ -60,7 +83,7 @@ export default function App() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 rounded-md py-1.5 text-[12.5px] font-medium ${tab === t.id ? "bg-accent text-white shadow-sm" : "text-muted hover:text-white"}`}
+              className={`flex-1 rounded-md ${isMobile ? "py-2.5 text-[13.5px]" : "py-1.5 text-[12.5px]"} font-medium ${tab === t.id ? "bg-accent text-white shadow-sm" : "text-muted hover:text-white"}`}
             >
               {t.label}
             </button>
@@ -69,7 +92,7 @@ export default function App() {
         <button
           onClick={() => setTab("settings")}
           title="Settings"
-          className={`grid h-8 w-8 place-items-center rounded-lg ${tab === "settings" ? "bg-accent text-white" : "bg-panel text-muted hover:text-white"}`}
+          className={`grid ${isMobile ? "h-11 w-11" : "h-8 w-8"} place-items-center rounded-lg ${tab === "settings" ? "bg-accent text-white" : "bg-panel text-muted hover:text-white"}`}
         >
           <SettingsIcon size={15} />
         </button>

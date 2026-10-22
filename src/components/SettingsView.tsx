@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { listLeagues, listTeams, openLink, saveSettings, testGoalAlert, testNotification } from "../lib/api";
 import type { Settings, StreamLink, TeamChoice } from "../lib/types";
+import { onWebsite } from "../lib/api";
+import { isDesktopApp } from "../lib/platform";
 import { Crest } from "./Crest";
 import { DownIcon, EyeIcon, PlusIcon, TrashIcon, UpIcon } from "./icons";
 import { SectionTitle } from "./views";
@@ -163,12 +165,14 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
   return (
     <div className="space-y-4">
       <Card title="Your team">
-        <TeamPicker team={draft.team} onPick={(team) => update({ team })} canLoad={hasApiKey || !!draft.apiKey.trim()} />
+        <TeamPicker team={draft.team} onPick={(team) => update({ team })} canLoad={onWebsite || hasApiKey || !!draft.apiKey.trim()} />
         {draft.team.id !== settings.team.id && (
           <p className="text-[11.5px] text-muted">Save to switch to {draft.team.shortName}.</p>
         )}
       </Card>
 
+      {isDesktopApp && (
+        <>
       <Card title="API key">
         <p className="text-[12px] leading-relaxed text-muted">
           A free key from{" "}
@@ -196,7 +200,11 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
           </button>
         </div>
       </Card>
+        </>
+      )}
 
+      {isDesktopApp && (
+        <>
       <Card title="Match stats key">
         <p className="text-[12px] leading-relaxed text-muted">
           Goals, cards, line-ups and stats come from{" "}
@@ -215,6 +223,8 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
           autoComplete="off"
         />
       </Card>
+        </>
+      )}
 
       <Card title="Reminders">
         <div>
@@ -235,7 +245,7 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
             })}
           </div>
         </div>
-        <Toggle checked={draft.goalAlerts} onChange={(v) => update({ goalAlerts: v })} label="Goal alerts" hint="The moment a goal goes in, with the scorer if available" />
+        <Toggle checked={draft.goalAlerts} onChange={(v) => update({ goalAlerts: v })} label="Goal alerts" hint={isDesktopApp ? "The moment a goal goes in, with the scorer if available" : "While Matchnight is open in a tab"} />
         <Toggle checked={draft.resultNotifications} onChange={(v) => update({ resultNotifications: v })} label="Full-time results" hint="A notification with the final score" />
         <div className="flex gap-4">
           <button onClick={() => testNotification()} className="text-[12px] text-muted underline underline-offset-2 hover:text-white">
@@ -247,8 +257,8 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
         </div>
       </Card>
 
-      <Card title="Widget">
-        <Toggle checked={draft.alwaysOnTop} onChange={(v) => update({ alwaysOnTop: v })} label="Always on top" />
+      <Card title={isDesktopApp ? "Widget" : "Updates"}>
+        {isDesktopApp && <Toggle checked={draft.alwaysOnTop} onChange={(v) => update({ alwaysOnTop: v })} label="Always on top" />}
         <label className="flex items-center justify-between gap-3">
           <span>
             <span className="block text-[13px]">Check for updates every</span>

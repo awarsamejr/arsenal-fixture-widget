@@ -303,7 +303,7 @@ impl StatsClient {
     /// Possible Highlightly ids for a football-data team, best guess first.
     /// Tries the full name without "FC" etc., then the short name.
     pub async fn find_team_candidates(&self, key: &str, name: &str, short_name: &str) -> Result<Counted<Vec<u64>>, ApiError> {
-        let names = [clean_team_name(name), short_name.to_string()];
+        let names = team_name_variants(name, short_name);
         let mut remaining = None;
         for query in names.iter().filter(|q| !q.is_empty()) {
             let path = format!("/teams?name={}", urlencode(query));
@@ -362,6 +362,44 @@ struct RawTeamSummary {
 }
 
 /// "FC Bayern München" → "Bayern München", "Arsenal FC" → "Arsenal"
+/// Highlightly's team search only finds exact (case-insensitive) names, so try
+/// a few spellings: "FC Bayern München" → "Bayern München", "Bayern Munich", "Bayern".
+pub fn team_name_variants(name: &str, short_name: &str) -> Vec<String> {
+    const ENGLISH: &[(&str, &str)] = &[
+        ("München", "Munich"), ("Köln", "Cologne"), ("Milano", "Milan"), ("Lisboa", "Lisbon"), ("Praha", "Prague"),
+        ("Wien", "Vienna"), ("Torino", "Turin"), ("Sevilla", "Seville"), ("Firenze", "Florence"), ("Genova", "Genoa"),
+    ];
+    let clean = clean_team_name(name);
+    let english = clean
+        .split(' ')
+        .map(|w| ENGLISH.iter().find(|(from, _)| *from == w).map_or(w, |(_, to)| *to))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let plain = strip_accents(&english);
+    let mut out: Vec<String> = Vec::new();
+    for v in [clean, english, short_name.trim().to_string(), plain] {
+        if !v.is_empty() && !out.contains(&v) {
+            out.push(v);
+        }
+    }
+    out
+}
+
+fn strip_accents(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'í' | 'ì' | 'î' | 'ï' => 'i',
+            'ó' | 'ò' | 'ô' | 'ö' | 'õ' | 'ø' => 'o',
+            'ú' | 'ù' | 'û' | 'ü' => 'u',
+            'ñ' => 'n',
+            'ç' => 'c',
+            other => other,
+        })
+        .collect()
+}
+
 pub fn clean_team_name(name: &str) -> String {
     const NOISE: &[&str] = &["FC", "AFC", "CF", "SC", "SV", "AC", "SSC", "1.", "&"];
     name.split_whitespace().filter(|w| !NOISE.contains(w)).collect::<Vec<_>>().join(" ")
@@ -559,6 +597,9 @@ mod tests {
         // Two clubs are called exactly "Arsenal"; the national team is skipped
         assert_eq!(rank_team_candidates(body, &names).unwrap(), vec![36526, 8016353]);
         assert_eq!(clean_team_name("FC Bayern München"), "Bayern München");
+        assert_eq!(team_name_variants("FC Bayern München", "Bayern"), vec!["Bayern München", "Bayern Munich", "Bayern"]);
+        assert_eq!(team_name_variants("Arsenal FC", "Arsenal"), vec!["Arsenal"]);
+        assert_eq!(strip_accents("Atlético"), "Atletico");
         assert_eq!(clean_team_name("Brighton & Hove Albion FC"), "Brighton Hove Albion");
         assert_eq!(urlencode("Bayern München"), "Bayern%20M%C3%BCnchen");
     }

@@ -249,6 +249,9 @@ export async function saveSettings(next: Settings) {
   return settings;
 }
 
+export const testNotification = async () => alert("Test notification");
+export const testGoalAlert = async () => alert("⚽ GOAL! (test)");
+
 export async function setMiniMode(on: boolean) {
   return saveSettings({ ...settings, miniMode: on });
 }

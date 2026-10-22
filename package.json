@@ -8,7 +8,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:web": "npm run build && wrangler pages dev dist --port 8788",
+    "deploy:web": "npm run build && wrangler pages deploy dist --project-name matchnight"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -26,6 +28,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "vite": "^8.0.16",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.152.0"
   }
 }
