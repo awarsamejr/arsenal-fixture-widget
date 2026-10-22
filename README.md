@@ -1,109 +1,75 @@
-# Arsenal Fixture Widget ⚽️
+# Arsenal Widget ⚽️
 
-The Arsenal Fixture Widget is a desktop app 🖥️ that shows Arsenal's upcoming fixtures 📅 in a user-friendly GUI. It uses the Football Data API 🌐 to fetch live data 📊 and offers features like viewing fixtures, searching opponents, and refreshing data 🔄.
+A small always-on-top desktop widget for Arsenal fans ❤️⚪️🔴: the next match with a live countdown, live scores on match day, results, the Premier League table, reminders before kick-off, and your streaming links in one click. It lives in the system tray.
 
-## Why This Program Was Created ❓
+Built with [Tauri 2](https://tauri.app) (Rust) and React + TypeScript. The installer is tiny (a few MB) because it uses Windows' built-in WebView2.
 
-As an Arsenal fan ❤️⚪️🔴, staying updated with the team's fixtures can be both exciting 🎉 and challenging 😅. This widget provides an easy and elegant way to track Arsenal's matches 🏟️ without relying on websites 🌍 or apps 📱. The aim was to build my own "widget" that delivers real-time fixture updates, lets you search by opponents, and refreshes data seamlessly.
+> Version 1 was a Java Swing app. It's preserved on the [`legacy-java`](../../tree/legacy-java) branch and the `v1-java` tag.
 
 ## Features ✨
 
-- **Live Fixture Data** 📅: Fetch Arsenal's matches directly from the API 🌐.
-- **Today's Fixture**: See matches scheduled for today ⏰.
-- **Next Fixture**: Highlights the next match 🥅 after today.
-- **Search by Opponent** 🔍: Find fixtures against a specific team 🏆.
-- **Always-On-Top Widget** 📌: Stay on top for quick access.
-- **Refresh Data** 🔄: Fetch the latest updates anytime.
+- **Next match**: both crests, competition, home/away, local kick-off time and a live countdown
+- **Live score**: on match day the card switches to the score with a pulsing LIVE / HT badge, refreshed every minute
+- **Coming up**: every upcoming fixture, with search by opponent (partial names and nicknames like "spurs" work)
+- **Results**: recent scores with W/D/L, a form guide and the season record
+- **Table**: Premier League standings with Arsenal highlighted
+- **Watch**: your own list of streaming links that open in your browser
+- **Reminders**: Windows notifications before kick-off (1 day, 3 hours, 1 hour, 30/15 min, kick-off, as you choose) and the full-time result
+- **Tray icon**: click to show/hide; the menu has Refresh, Always on top and Quit. Hover it to see the next match
+- Remembers its size and position; works offline with the last data it loaded
 
+## Getting an API key 🔑
 
-## Setup Instructions 📖
+Fixtures come from [football-data.org](https://www.football-data.org/client/register). The free tier is enough.
 
-### Step 1: Clone the Repository 🗂️
+Either paste the key into **Settings → API key** in the widget, or put it in a file called `api_key.txt` next to `arsenal-widget.exe`. The Settings key wins if both are set. `api_key.txt` is git-ignored.
 
-```bash
-git clone https://github.com/<your-repo-name>/arsenal-fixture-widget.git
-cd arsenal-fixture-widget
-```
+## Using it 🚀
 
-### Step 2: Add Your API Key 🔑
+Run the installer from `src-tauri/target/release/bundle/nsis/`, or just run `arsenal-widget.exe` directly. Closing the window hides it to the tray; quit from the tray menu.
 
-1. Sign up at [Football Data](https://www.football-data.org/pricing).
-2. Copy your API key 🔑 from the dashboard.
-3. Save it in a file named `api_key.txt` in the root directory 📁.
-
-### Step 3: Create the Manifest File 📜
-
-Add a file `MANIFEST.MF` with:
-
-```plaintext
-Main-Class: APIMain
-Class-Path: lib/json-20240303.jar
-```
-
-### Step 4: Compile & Run 🏃‍♂️
-
-#### Compile Source Code 💻
-
-```bash
-javac -cp "lib/json-20240303.jar" -d bin src/*.java
-```
-
-#### Create JAR File 🏗️
-
-```bash
-jar cfm arsenal-widget.jar MANIFEST.MF -C bin .
-```
-
-#### Run JAR File 🚀
-
-```bash
-java -jar arsenal-widget.jar
-```
-
-## What is a Manifest File? 📜
-
-The `MANIFEST.MF` is part of the JAR file and specifies:
-
-- `Main-Class`: Entry point 🏁 (`APIMain`).
-- `Class-Path`: Dependencies 🌟 (`json-20240303.jar`).
-
-## File Structure 🗂️
-
-```plaintext
-.
-├── lib
-│   └── json-20240303.jar       # JSON library 🗂️
-├── src
-│   ├── APIMain.java           # Main entry 🏁
-│   ├── Fixture.java           # Data model 📄
-├── api_key.txt                # API key 🔑
-├── arsenal_cannon.png         # App icon 🖼️
-├── README.md                  # Documentation 📚
-├── MANIFEST.MF                # JAR setup 📜
-```
+Settings and cached data live in `%APPDATA%\com.awarsamejr.arsenalwidget\`.
 
 ## Development 🛠️
 
-### Run Locally 🚀
+You need [Rust](https://rustup.rs), [Node.js](https://nodejs.org) 20+, and the Visual Studio C++ build tools ([Tauri prerequisites](https://tauri.app/start/prerequisites/)).
 
 ```bash
-java -cp "lib/json-20240303.jar;bin" APIMain
+npm install
+npm run tauri dev      # run the app with hot reload
+npm run dev            # UI only, in a browser, with sample data (add ?live, ?nokey or ?error to the URL)
+npm test               # frontend tests (Vitest)
+cd src-tauri && cargo test   # Rust tests
+npm run tauri build    # release exe + installer
 ```
 
-### Improvements 🚀
+In dev builds, `api_key.txt` in the project folder is picked up automatically.
 
-- **Live Scores** 📊: Needs a paid API 🔑.
-- **Player Stats** 👤: Add detailed stats.
-- **Match Results** ⚽: Post-match updates.
-- **Competition Stats** 🏆: League standings 📈.
-- **Notifications** 🔔: For upcoming fixtures.
-- **Multi-Team Support** 🏟️: Expand to other teams.
+### How it's put together
 
-## Contributions 🤝
+```plaintext
+src-tauri/src/          Rust: owns the data, timers and notifications
+  api.rs                football-data.org client (the key never leaves Rust)
+  models.rs             API shapes → tidy fixtures / table rows for the UI
+  scheduler.rs          when to refresh (faster around matches) and which reminders are due
+  settings.rs           settings + cache stored in the app data folder
+  state.rs              shared state; pushes "state-updated" events to the UI
+  tray.rs, commands.rs  tray icon/menu; functions the UI can call
+src/                    React UI
+  App.tsx               title bar, tabs, status bar
+  components/           NextMatchHero, FixtureRow, views (Next/Results/Table/Watch), SettingsView
+  lib/                  api bridge, formatting helpers (+ tests), sample data for browser preview
+```
 
-Fork, tweak, and submit PRs 📬! Everyone is welcome 🌍.
+The Rust side polls every 15 minutes (configurable), every minute from 15 minutes before kick-off until full time, and the table every 30 minutes. That stays well inside the free tier's 10 requests per minute. Free-tier live scores can lag by a few minutes.
+
+## Ideas 💡
+
+- Player stats and line-ups (needs a paid API tier)
+- Start with Windows
+- Support for other teams
 
 ## Acknowledgments 🙌
 
-- [Football-data-org](https://www.football-data.org/) for live data 📊.
-- Arsenal FC ❤️⚪️🔴 for being an inspiration and the best team!
+- [football-data.org](https://www.football-data.org/) for the data
+- Arsenal FC for being an inspiration and the best team!

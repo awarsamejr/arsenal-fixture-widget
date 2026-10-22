@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+
+  --color-ink: #0d0f14;        /* window background */
+  --color-panel: #161a22;      /* cards */
+  --color-panel-2: #1e232d;    /* raised / hover */
+  --color-line: #262c38;       /* borders */
+  --color-muted: #8b93a3;      /* secondary text */
+  --color-gunner: #ef0107;     /* Arsenal red */
+  --color-gunner-dark: #9c0006;
+  --color-gold: #d4a64a;
+  --color-win: #22c55e;
+  --color-draw: #9ca3af;
+  --color-loss: #ef4444;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: #f3f4f6;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+/* Thin, dark scrollbars to suit the widget */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.live-dot {
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+}

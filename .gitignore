@@ -1,19 +1,22 @@
-# Compiled Java class files
-*.class
-bin/
-
-# Build outputs (users build these themselves)
-*.jar
-!lib/*.jar
-*.exe
+# Dependencies and build output
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/schemas/
 
 # Your own API key - never commit this
 api_key.txt
 
-# Logs and IDE files
-*.log
-.idea/
-*.iml
-
-# Build setup file (see README)
+# Leftovers from the old Java version
+*.class
+bin/
+*.jar
+*.exe
 MANIFEST.MF
+
+# Logs and editor files
+*.log
+*.local
+.idea/
+.DS_Store
+*.tsbuildinfo
