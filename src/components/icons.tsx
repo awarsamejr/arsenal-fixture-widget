@@ -26,7 +26,13 @@ function Icon({ size = 16, children, ...rest }: IconProps) {
 export const PinIcon = (p: IconProps) => (
   <Icon {...p}><path d="M12 17v5" /><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" /></Icon>
 );
-export const MinusIcon = (p: IconProps) => <Icon {...p}><path d="M5 12h14" /></Icon>;
+export const ShrinkIcon = (p: IconProps) => (
+  <Icon {...p}><path d="m4 14 6 0 0 6" /><path d="m20 10-6 0 0-6" /><path d="m14 10 7-7" /><path d="m3 21 7-7" /></Icon>
+);
+export const ExpandIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="m21 3-7 7" /><path d="m3 21 7-7" /></Icon>
+);
+export const MinusIcon =(p: IconProps) => <Icon {...p}><path d="M5 12h14" /></Icon>;
 export const CloseIcon = (p: IconProps) => <Icon {...p}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></Icon>;
 export const RefreshIcon = (p: IconProps) => (
   <Icon {...p}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></Icon>

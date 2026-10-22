@@ -6,6 +6,7 @@ import { useAppData, useNow } from "./lib/hooks";
 import type { Fixture, Snapshot } from "./lib/types";
 import { AlertIcon, RefreshIcon, SettingsIcon } from "./components/icons";
 import { MatchDetailView } from "./components/MatchDetailView";
+import { MiniStrip } from "./components/MiniStrip";
 import { SettingsView } from "./components/SettingsView";
 import { TitleBar } from "./components/TitleBar";
 import { NextView, ResultsView, TableView, WatchView } from "./components/views";
@@ -43,6 +44,8 @@ export default function App() {
   if (!snapshot || !settings) {
     return <div className="grid h-full place-items-center text-muted">Loading…</div>;
   }
+
+  if (settings.miniMode) return <MiniStrip snapshot={snapshot} />;
 
   const needsKey = !snapshot.hasApiKey && tab !== "settings";
   const openMatchFixture = snapshot.fixtures.find((f) => f.id === openMatchId);

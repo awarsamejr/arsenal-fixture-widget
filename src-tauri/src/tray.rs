@@ -14,14 +14,16 @@ const TRAY_ID: &str = "main";
 /// Kept so the "Always on top" tick can follow changes made in the widget.
 pub struct TrayMenu<R: Runtime> {
     pub pin: CheckMenuItem<R>,
+    pub mini: CheckMenuItem<R>,
 }
 
-pub fn create<R: Runtime>(app: &AppHandle<R>, always_on_top: bool) -> tauri::Result<()> {
+pub fn create<R: Runtime>(app: &AppHandle<R>, always_on_top: bool, mini_mode: bool) -> tauri::Result<()> {
     let toggle = MenuItem::with_id(app, "toggle", "Show / hide", true, None::<&str>)?;
     let refresh = MenuItem::with_id(app, "refresh", "Refresh now", true, None::<&str>)?;
     let pin = CheckMenuItem::with_id(app, "pin", "Always on top", true, always_on_top, None::<&str>)?;
+    let mini = CheckMenuItem::with_id(app, "mini", "Mini mode", true, mini_mode, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&toggle, &refresh, &pin, &PredefinedMenuItem::separator(app)?, &quit])?;
+    let menu = Menu::with_items(app, &[&toggle, &refresh, &pin, &mini, &PredefinedMenuItem::separator(app)?, &quit])?;
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("app icon missing"))
@@ -35,6 +37,10 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, always_on_top: bool) -> tauri::Res
                 let on = !app.state::<AppState>().settings().always_on_top;
                 commands::set_always_on_top(app, on);
             }
+            "mini" => {
+                let on = !app.state::<AppState>().settings().mini_mode;
+                commands::set_mini_mode(app.clone(), on);
+            }
             "quit" => app.exit(0),
             _ => {}
         })
@@ -45,7 +51,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, always_on_top: bool) -> tauri::Res
         })
         .build(app)?;
 
-    app.manage(TrayMenu { pin });
+    app.manage(TrayMenu { pin, mini });
     Ok(())
 }
 
@@ -70,6 +76,12 @@ fn toggle_window<R: Runtime>(app: &AppHandle<R>) {
 pub fn set_pin_checked<R: Runtime>(app: &AppHandle<R>, on: bool) {
     if let Some(menu) = app.try_state::<TrayMenu<R>>() {
         let _ = menu.pin.set_checked(on);
+    }
+}
+
+pub fn set_mini_checked<R: Runtime>(app: &AppHandle<R>, on: bool) {
+    if let Some(menu) = app.try_state::<TrayMenu<R>>() {
+        let _ = menu.mini.set_checked(on);
     }
 }
 

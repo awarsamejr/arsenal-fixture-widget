@@ -58,5 +58,8 @@ export function onSettings(callback: (s: Settings) => void): () => void {
 export const openLink = (url: string): Promise<void> =>
   inApp ? openUrl(url) : Promise.resolve(void window.open(url, "_blank"));
 
+export const setMiniMode = (on: boolean): Promise<Settings> =>
+  inApp ? invoke("set_mini_mode", { on }) : mock.setMiniMode(on);
+
 export const hideWindow = () => (inApp ? getCurrentWindow().hide() : Promise.resolve());
 export const minimizeWindow = () => (inApp ? getCurrentWindow().minimize() : Promise.resolve());

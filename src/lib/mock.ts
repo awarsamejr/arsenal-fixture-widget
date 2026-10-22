@@ -249,6 +249,10 @@ export async function saveSettings(next: Settings) {
   return settings;
 }
 
+export async function setMiniMode(on: boolean) {
+  return saveSettings({ ...settings, miniMode: on });
+}
+
 export async function refreshNow() {
   snapshot = { ...snapshot, refreshing: true };
   snapshotListeners.forEach((l) => l(snapshot));

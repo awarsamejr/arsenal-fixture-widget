@@ -31,6 +31,8 @@ pub struct AppState {
     details: Mutex<HashMap<u64, (MatchDetails, DateTime<Utc>)>>,
     /// Team lists per league for the picker, loaded this session
     teams: Mutex<HashMap<String, Vec<TeamChoice>>>,
+    /// Window size before switching to mini mode (logical pixels)
+    full_size: Mutex<Option<(f64, f64)>>,
 }
 
 /// Head-to-head only changes when the two teams meet again
@@ -45,7 +47,16 @@ impl AppState {
             wake: Notify::new(),
             details: Mutex::new(HashMap::new()),
             teams: Mutex::new(HashMap::new()),
+            full_size: Mutex::new(None),
         }
+    }
+
+    pub fn remember_full_size(&self, size: (f64, f64)) {
+        *self.full_size.lock().unwrap_or_else(|p| p.into_inner()) = Some(size);
+    }
+
+    pub fn full_size(&self) -> Option<(f64, f64)> {
+        *self.full_size.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     pub fn cached_teams(&self, league: &str) -> Option<Vec<TeamChoice>> {

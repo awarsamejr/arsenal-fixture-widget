@@ -117,6 +117,52 @@ pub fn test_goal_alert<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>
         .map_err(|e| e.to_string())
 }
 
+/// Shrinks the widget to a one-line strip, or brings it back to full size.
+#[tauri::command]
+pub fn set_mini_mode<R: Runtime>(app: AppHandle<R>, on: bool) -> Settings {
+    let state = app.state::<AppState>();
+    let new = Settings { mini_mode: on, ..state.settings() };
+    if let Err(e) = settings::save_settings(&app, &new) {
+        eprintln!("couldn't save settings: {e}");
+    }
+    state.set_settings(new.clone());
+    apply_mini_mode(&app, on);
+    tray::set_mini_checked(&app, on);
+    let _ = app.emit(SETTINGS_EVENT, &new);
+    new
+}
+
+/// Mini strip size, and the normal size to go back to if none was remembered.
+const MINI_SIZE: (f64, f64) = (380.0, 64.0);
+const FULL_SIZE: (f64, f64) = (380.0, 600.0);
+const FULL_MIN_SIZE: (f64, f64) = (340.0, 460.0);
+
+pub fn apply_mini_mode<R: Runtime>(app: &AppHandle<R>, on: bool) {
+    use tauri::LogicalSize;
+    let Some(window) = app.get_webview_window("main") else { return };
+    let state = app.state::<AppState>();
+    let scale = window.scale_factor().unwrap_or(1.0);
+    if on {
+        // Remember the full size so it comes back the same
+        if let Ok(size) = window.inner_size() {
+            let logical = size.to_logical::<f64>(scale);
+            if logical.height > MINI_SIZE.1 + 20.0 {
+                state.remember_full_size((logical.width, logical.height));
+            }
+        }
+        let _ = window.set_min_size(Some(LogicalSize::new(260.0, MINI_SIZE.1)));
+        let _ = window.set_size(LogicalSize::new(MINI_SIZE.0, MINI_SIZE.1));
+        let _ = window.set_resizable(false);
+        let _ = window.set_maximizable(false);
+    } else {
+        let (w, h) = state.full_size().unwrap_or(FULL_SIZE);
+        let _ = window.set_resizable(true);
+        let _ = window.set_maximizable(true);
+        let _ = window.set_min_size(Some(LogicalSize::new(FULL_MIN_SIZE.0, FULL_MIN_SIZE.1)));
+        let _ = window.set_size(LogicalSize::new(w, h));
+    }
+}
+
 /// Used by the tray menu, so the setting, window and widget stay in step.
 pub fn set_always_on_top<R: Runtime>(app: &AppHandle<R>, on: bool) {
     let state = app.state::<AppState>();

@@ -27,6 +27,7 @@ pub fn run() {
             let settings = settings::load_settings(handle);
             let cache = settings::load_cache(handle);
             let always_on_top = settings.always_on_top;
+            let mini_mode = settings.mini_mode;
             app.manage(AppState::new(settings, cache));
             app.manage(api::Client::new()); // for requests the UI makes, like match details
             app.manage(highlightly::StatsClient::new());
@@ -35,7 +36,10 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 window.set_always_on_top(always_on_top)?;
             }
-            tray::create(handle, always_on_top)?;
+            tray::create(handle, always_on_top, mini_mode)?;
+            if mini_mode {
+                commands::apply_mini_mode(handle, true);
+            }
             tray::update_tooltip(handle, &app.state::<AppState>().snapshot());
 
             tauri::async_runtime::spawn(scheduler::run(handle.clone()));
@@ -59,6 +63,7 @@ pub fn run() {
             commands::list_teams,
             commands::test_notification,
             commands::test_goal_alert,
+            commands::set_mini_mode,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

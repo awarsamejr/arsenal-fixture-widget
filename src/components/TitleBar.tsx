@@ -1,7 +1,7 @@
-import { hideWindow, minimizeWindow } from "../lib/api";
+import { hideWindow, minimizeWindow, setMiniMode } from "../lib/api";
 import type { TeamChoice } from "../lib/types";
 import { Crest } from "./Crest";
-import { CloseIcon, MinusIcon, PinIcon } from "./icons";
+import { CloseIcon, MinusIcon, PinIcon, ShrinkIcon } from "./icons";
 
 interface Props {
   team: TeamChoice;
@@ -28,6 +28,9 @@ export function TitleBar({ team, pinned, onTogglePin }: Props) {
         aria-pressed={pinned}
       >
         <PinIcon size={15} fill={pinned ? "currentColor" : "none"} />
+      </button>
+      <button className={button} onClick={() => setMiniMode(true)} title="Mini mode: shrink to one line">
+        <ShrinkIcon size={14} />
       </button>
       <button className={button} onClick={() => minimizeWindow()} title="Minimise">
         <MinusIcon size={16} />
