@@ -39,6 +39,9 @@ export const getMatchStats = (fixtureId: number): Promise<StatsResult> =>
 export const testNotification = (): Promise<void> =>
   inApp ? invoke("test_notification") : Promise.resolve(alert("Test notification"));
 
+export const testGoalAlert = (): Promise<void> =>
+  inApp ? invoke("test_goal_alert") : Promise.resolve(alert("⚽ GOAL! (test)"));
+
 /** Calls back whenever the Rust side has new data. Returns an unsubscribe function. */
 export function onSnapshot(callback: (s: Snapshot) => void): () => void {
   if (!inApp) return mock.onSnapshot(callback);

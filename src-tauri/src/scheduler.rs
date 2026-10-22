@@ -9,9 +9,11 @@ use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_notification::NotificationExt;
 
 use crate::api::{ApiError, Client};
+use crate::highlightly::EventKind;
 use crate::models::{Fixture, MatchStatus, Outcome};
 use crate::settings::Settings;
 use crate::state::AppState;
+use crate::stats::{self, StatsResult};
 
 /// How often to poll while a match is on (or about to start)
 const LIVE_POLL: Duration = Duration::seconds(60);
@@ -101,6 +103,38 @@ pub fn due_notices(fixtures: &[Fixture], now: DateTime<Utc>, settings: &Settings
     notices
 }
 
+/// Goals (and disallowed goals) between two fetches, as notifications.
+/// Keys include the score, so each scoreline is announced once.
+pub fn goal_notices(before: &[Fixture], after: &[Fixture], sent: &HashSet<String>) -> Vec<Notice> {
+    let mut notices = Vec::new();
+    for new in after.iter().filter(|f| f.status.is_live() || f.status == MatchStatus::Finished) {
+        let Some(old) = before.iter().find(|f| f.id == new.id) else { continue };
+        // Only compare while the match is going on (or has just ended)
+        if old.status == MatchStatus::Finished || !(old.status.is_live() || old.status == MatchStatus::Scheduled) {
+            continue;
+        }
+        let (old_us, old_them) = (old.team_goals.unwrap_or(0), old.opponent_goals.unwrap_or(0));
+        let (us, them) = (new.team_goals.unwrap_or(0), new.opponent_goals.unwrap_or(0));
+        if (us, them) == (old_us, old_them) {
+            continue;
+        }
+        let key = format!("{}:g{us}-{them}", new.id);
+        if sent.contains(&key) {
+            continue;
+        }
+        let score = new.score_line().unwrap_or_else(|| new.title());
+        let title = if us < old_us || them < old_them {
+            "Goal disallowed".to_string()
+        } else if us > old_us {
+            format!("⚽ GOAL! {}", new.team.short_name)
+        } else {
+            format!("{} score", new.opponent.short_name)
+        };
+        notices.push(Notice { key, title, body: score });
+    }
+    notices
+}
+
 /// "in 1 hour", "in 2 days", "in 30 minutes"
 pub fn lead_label(minutes: u32) -> String {
     let (n, unit) = if minutes % 1440 == 0 {
@@ -160,11 +194,16 @@ async fn refresh<R: Runtime>(app: &AppHandle<R>, client: &Client) {
     };
     let table = if fixtures.is_ok() && table_stale { Some(client.fetch_table(&key, &settings.team.league, settings.team.id).await) } else { None };
 
-    state.finish_refresh(app, |inner| {
+    let goals = state.finish_refresh(app, |inner| {
         let snap = &mut inner.cache.snapshot;
         snap.has_api_key = true;
+        let mut goals = Vec::new();
         match fixtures {
             Ok(new) => {
+                if settings.goal_alerts {
+                    goals = goal_notices(&snap.fixtures, &new, &inner.cache.sent_notifications);
+                    inner.cache.sent_notifications.extend(goals.iter().map(|n| n.key.clone()));
+                }
                 snap.fixtures = new;
                 snap.error = None;
                 snap.last_updated = Some(now);
@@ -193,16 +232,44 @@ async fn refresh<R: Runtime>(app: &AppHandle<R>, client: &Client) {
             .cache
             .sent_notifications
             .retain(|k| k.split(':').next().is_some_and(|id| ids.contains(id)));
+        goals
     });
+
+    for goal in goals {
+        let body = match scorer_for(app, &goal).await {
+            Some(scorer) => format!("{} · {scorer}", goal.body),
+            None => goal.body,
+        };
+        show(app, &goal.title, &body);
+    }
+}
+
+/// "Rice 78'" for the latest goal, if Highlightly is set up and has it already.
+/// Costs at most one stats request per goal.
+async fn scorer_for<R: Runtime>(app: &AppHandle<R>, goal: &Notice) -> Option<String> {
+    let fixture_id: u64 = goal.key.split(':').next()?.parse().ok()?;
+    let ours = goal.title.starts_with('⚽');
+    let StatsResult::Ready { stats, .. } = stats::get_stats(app, fixture_id).await.ok()? else {
+        return None;
+    };
+    let event = stats.events.iter().rev().find(|e| {
+        e.team == ours && matches!(e.kind, EventKind::Goal | EventKind::PenaltyGoal | EventKind::OwnGoal)
+    })?;
+    let surname = event.player.split_whitespace().last().unwrap_or(&event.player);
+    Some(format!("{surname} {}'", event.minute))
+}
+
+fn show<R: Runtime>(app: &AppHandle<R>, title: &str, body: &str) {
+    if let Err(e) = app.notification().builder().title(title).body(body).show() {
+        eprintln!("notification failed: {e}");
+    }
 }
 
 fn send_due_notices<R: Runtime>(app: &AppHandle<R>) {
     let state = app.state::<AppState>();
     let notices = state.take_due_notices(app, Utc::now(), due_notices);
     for n in notices {
-        if let Err(e) = app.notification().builder().title(&n.title).body(&n.body).show() {
-            eprintln!("notification failed: {e}");
-        }
+        show(app, &n.title, &n.body);
     }
 }
 
@@ -320,6 +387,49 @@ mod tests {
 
         let off = Settings { result_notifications: false, ..Default::default() };
         assert!(due_notices(&[f], t(16, 0), &off, &HashSet::new()).is_empty());
+    }
+
+    fn scored(mut f: Fixture, us: u32, them: u32) -> Fixture {
+        f.team_goals = Some(us);
+        f.opponent_goals = Some(them);
+        f
+    }
+
+    #[test]
+    fn announces_goals_for_and_against() {
+        let kickoff = t(14, 0);
+        let before = vec![scored(fixture(1, kickoff, MatchStatus::Live), 1, 0)];
+        let none = HashSet::new();
+
+        let ours = goal_notices(&before, &[scored(fixture(1, kickoff, MatchStatus::Live), 2, 0)], &none);
+        assert_eq!(ours, vec![Notice { key: "1:g2-0".into(), title: "⚽ GOAL! Arsenal".into(), body: "Arsenal 2–0 Everton".into() }]);
+
+        let theirs = goal_notices(&before, &[scored(fixture(1, kickoff, MatchStatus::Live), 1, 1)], &none);
+        assert_eq!(theirs[0].title, "Everton score");
+
+        let ruled_out = goal_notices(&before, &[scored(fixture(1, kickoff, MatchStatus::Live), 0, 0)], &none);
+        assert_eq!(ruled_out[0].title, "Goal disallowed");
+    }
+
+    #[test]
+    fn first_goal_counts_from_kickoff_and_nothing_repeats() {
+        let kickoff = t(14, 0);
+        // Not marked live yet on the previous fetch, no score at all
+        let before = vec![fixture(1, kickoff, MatchStatus::Scheduled)];
+        let after = vec![scored(fixture(1, kickoff, MatchStatus::Live), 1, 0)];
+        let due = goal_notices(&before, &after, &HashSet::new());
+        assert_eq!(due.len(), 1);
+
+        let sent: HashSet<String> = due.into_iter().map(|n| n.key).collect();
+        assert!(goal_notices(&before, &after, &sent).is_empty());
+
+        // A late goal arriving with the final whistle still counts
+        let finished = vec![scored(fixture(1, kickoff, MatchStatus::Finished), 2, 0)];
+        assert_eq!(goal_notices(&after, &finished, &sent).len(), 1);
+
+        // No change, or a match that was already over: nothing
+        assert!(goal_notices(&after, &after, &HashSet::new()).is_empty());
+        assert!(goal_notices(&finished, &finished, &HashSet::new()).is_empty());
     }
 
     #[test]

@@ -58,6 +58,7 @@ pub fn run() {
             commands::list_leagues,
             commands::list_teams,
             commands::test_notification,
+            commands::test_goal_alert,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

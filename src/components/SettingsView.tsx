@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listLeagues, listTeams, openLink, saveSettings, testNotification } from "../lib/api";
+import { listLeagues, listTeams, openLink, saveSettings, testGoalAlert, testNotification } from "../lib/api";
 import type { Settings, StreamLink, TeamChoice } from "../lib/types";
 import { Crest } from "./Crest";
 import { DownIcon, EyeIcon, PlusIcon, TrashIcon, UpIcon } from "./icons";
@@ -235,10 +235,16 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
             })}
           </div>
         </div>
+        <Toggle checked={draft.goalAlerts} onChange={(v) => update({ goalAlerts: v })} label="Goal alerts" hint="The moment a goal goes in, with the scorer if available" />
         <Toggle checked={draft.resultNotifications} onChange={(v) => update({ resultNotifications: v })} label="Full-time results" hint="A notification with the final score" />
-        <button onClick={() => testNotification()} className="text-[12px] text-muted underline underline-offset-2 hover:text-white">
-          Send a test notification
-        </button>
+        <div className="flex gap-4">
+          <button onClick={() => testNotification()} className="text-[12px] text-muted underline underline-offset-2 hover:text-white">
+            Test notification
+          </button>
+          <button onClick={() => testGoalAlert()} className="text-[12px] text-muted underline underline-offset-2 hover:text-white">
+            Test goal alert
+          </button>
+        </div>
       </Card>
 
       <Card title="Widget">

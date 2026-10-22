@@ -99,6 +99,24 @@ pub fn test_notification<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Shows what a goal alert looks like, using the team's next match.
+#[tauri::command]
+pub fn test_goal_alert<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) -> Result<(), String> {
+    let snapshot = state.snapshot();
+    let team = state.settings().team.short_name;
+    let body = match snapshot.headline_fixture() {
+        Some(f) if f.home => format!("{} 1–0 {} · test alert", f.team.short_name, f.opponent.short_name),
+        Some(f) => format!("{} 0–1 {} · test alert", f.opponent.short_name, f.team.short_name),
+        None => "Test alert".into(),
+    };
+    app.notification()
+        .builder()
+        .title(format!("⚽ GOAL! {team}"))
+        .body(body)
+        .show()
+        .map_err(|e| e.to_string())
+}
+
 /// Used by the tray menu, so the setting, window and widget stay in step.
 pub fn set_always_on_top<R: Runtime>(app: &AppHandle<R>, on: bool) {
     let state = app.state::<AppState>();

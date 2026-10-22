@@ -123,18 +123,19 @@ impl AppState {
     }
 
     /// Applies the refresh result, then saves and tells the UI and tray.
-    pub fn finish_refresh<R: Runtime>(&self, app: &AppHandle<R>, apply: impl FnOnce(&mut Inner)) {
-        let snapshot = {
+    pub fn finish_refresh<R: Runtime, T>(&self, app: &AppHandle<R>, apply: impl FnOnce(&mut Inner) -> T) -> T {
+        let (out, snapshot) = {
             let mut inner = self.lock();
-            apply(&mut inner);
+            let out = apply(&mut inner);
             inner.cache.snapshot.refreshing = false;
             if let Err(e) = settings::save_cache(app, &inner.cache) {
                 eprintln!("couldn't save cache: {e}");
             }
-            inner.cache.snapshot.clone()
+            (out, inner.cache.snapshot.clone())
         };
         let _ = app.emit(STATE_EVENT, &snapshot);
         tray::update_tooltip(app, &snapshot);
+        out
     }
 
     /// Works out which notifications are due and marks them as sent.
