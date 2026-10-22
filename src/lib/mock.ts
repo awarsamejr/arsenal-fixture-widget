@@ -1,7 +1,7 @@
 // Sample data for previewing the UI in a browser (`npm run dev`).
 // Add ?live, ?nokey or ?error to the URL to see those states.
 
-import type { Fixture, MatchDetails, Settings, Snapshot, TableRow, TeamInfo } from "./types";
+import type { Fixture, MatchDetails, MatchStats, Settings, Snapshot, StatsResult, TableRow, TeamInfo } from "./types";
 
 const params = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
 const crest = (id: number) => `https://crests.football-data.org/${id}.png`;
@@ -110,6 +110,7 @@ let snapshot: Snapshot = {
 
 let settings: Settings = {
   apiKey: "",
+  statsApiKey: "",
   reminderMinutes: [1440, 60, 0],
   resultNotifications: true,
   refreshMinutes: 15,
@@ -143,6 +144,57 @@ export async function getMatchDetails(fixtureId: number): Promise<MatchDetails> 
     },
     meetings,
   };
+}
+
+/** Sample stats; ?nostats pretends there's no Highlightly key. */
+export async function getMatchStats(fixtureId: number): Promise<StatsResult> {
+  await new Promise((r) => setTimeout(r, 700));
+  if (params.has("nostats")) return { status: "noKey" };
+  const f = snapshot.fixtures.find((x) => x.id === fixtureId);
+  if (!f) throw "Match not found";
+  const played = f.status !== "scheduled";
+  const row = (...names: string[]) => names.map((name, i) => ({ name, number: i + 2 }));
+  const stats: MatchStats = {
+    venue: f.home ? "Emirates Stadium, London" : `${f.opponent.shortName} Stadium`,
+    weather: "Cloudy, 12°C",
+    prediction: { arsenalWin: 52.4, draw: 25.1, opponentWin: 22.5, live: played },
+    events: played
+      ? [
+          { minute: "12", kind: "goal", arsenal: true, player: "Bukayo Saka", detail: "Martin Ødegaard" },
+          { minute: "34", kind: "yellowCard", arsenal: false, player: "Opposition No. 6", detail: null },
+          { minute: "45+2", kind: "penaltyGoal", arsenal: false, player: "Opposition No. 9", detail: null },
+          { minute: "61", kind: "substitution", arsenal: true, player: "Kai Havertz", detail: "Viktor Gyökeres" },
+          { minute: "78", kind: "goal", arsenal: true, player: "Declan Rice", detail: "Viktor Gyökeres" },
+          { minute: "88", kind: "redCard", arsenal: false, player: "Opposition No. 4", detail: null },
+        ]
+      : [],
+    stats: played
+      ? [
+          { label: "Possession", arsenal: 0.61, opponent: 0.39, format: "percent" },
+          { label: "Expected goals (xG)", arsenal: 2.14, opponent: 0.87, format: "decimal" },
+          { label: "Shots", arsenal: 17, opponent: 8, format: "count" },
+          { label: "Shots on target", arsenal: 7, opponent: 3, format: "count" },
+          { label: "Pass accuracy", arsenal: 0.89, opponent: 0.78, format: "percent" },
+          { label: "Corners", arsenal: 8, opponent: 2, format: "count" },
+          { label: "Fouls", arsenal: 9, opponent: 14, format: "count" },
+        ]
+      : [],
+    lineups: played
+      ? {
+          arsenal: {
+            formation: "4-3-3",
+            rows: [row("David Raya"), row("R. Calafiori", "Gabriel", "W. Saliba", "J. Timber"), row("M. Ødegaard", "D. Rice", "M. Merino"), row("G. Martinelli", "K. Havertz", "B. Saka")],
+            substitutes: row("V. Gyökeres", "E. Eze", "M. Lewis-Skelly"),
+          },
+          opponent: {
+            formation: "4-2-3-1",
+            rows: [row("Keeper"), row("LB", "CB", "CB", "RB"), row("CM", "CM"), row("LW", "AM", "RW"), row("ST")],
+            substitutes: row("Sub One", "Sub Two"),
+          },
+        }
+      : null,
+  };
+  return { status: "ready", stats, requestsLeft: 93 };
 }
 
 export const getSnapshot = async () => snapshot;

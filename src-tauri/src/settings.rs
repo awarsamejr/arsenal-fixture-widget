@@ -1,13 +1,15 @@
 //! User settings and the on-disk cache, kept in the app's data folder
 //! (%APPDATA%\com.awarsamejr.arsenalwidget), never in the repo.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::StoreExt;
 
+use crate::highlightly::MatchStats;
 use crate::models::Snapshot;
 
 const SETTINGS_FILE: &str = "settings.json";
@@ -25,6 +27,8 @@ pub struct StreamLink {
 pub struct Settings {
     /// Empty means "use api_key.txt"
     pub api_key: String,
+    /// Highlightly key for match stats; empty means "use highlightly_key.txt"
+    pub stats_api_key: String,
     /// Minutes before kick-off to remind; 0 means at kick-off
     pub reminder_minutes: Vec<u32>,
     pub result_notifications: bool,
@@ -37,6 +41,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             api_key: String::new(),
+            stats_api_key: String::new(),
             reminder_minutes: vec![24 * 60, 60, 0],
             result_notifications: true,
             refresh_minutes: 15,
@@ -50,25 +55,34 @@ impl Settings {
     /// The key from Settings, or else from an api_key.txt file (next to the
     /// program, or in the project folder when developing).
     pub fn effective_api_key(&self) -> Option<String> {
-        let typed = self.api_key.trim();
-        if !typed.is_empty() {
-            return Some(typed.to_string());
-        }
-        key_file_candidates()
-            .into_iter()
-            .filter_map(|path| std::fs::read_to_string(path).ok())
-            .map(|text| text.trim().to_string())
-            .find(|key| !key.is_empty())
+        typed_or_file(&self.api_key, "api_key.txt")
+    }
+
+    /// Same idea for the Highlightly key, with highlightly_key.txt.
+    pub fn effective_stats_key(&self) -> Option<String> {
+        typed_or_file(&self.stats_api_key, "highlightly_key.txt")
     }
 }
 
-fn key_file_candidates() -> Vec<PathBuf> {
+fn typed_or_file(typed: &str, file_name: &str) -> Option<String> {
+    let typed = typed.trim();
+    if !typed.is_empty() {
+        return Some(typed.to_string());
+    }
+    key_file_candidates(file_name)
+        .into_iter()
+        .filter_map(|path| std::fs::read_to_string(path).ok())
+        .map(|text| text.trim().to_string())
+        .find(|key| !key.is_empty())
+}
+
+fn key_file_candidates(file_name: &str) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     if let Some(dir) = std::env::current_exe().ok().and_then(|exe| exe.parent().map(PathBuf::from)) {
-        paths.push(dir.join("api_key.txt"));
+        paths.push(dir.join(file_name));
     }
     if cfg!(debug_assertions) {
-        paths.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("api_key.txt"));
+        paths.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(file_name));
     }
     paths
 }
@@ -94,6 +108,37 @@ fn save<R: Runtime, T: Serialize>(app: &AppHandle<R>, file: &str, key: &str, val
     let store = app.store(file).map_err(|e| e.to_string())?;
     store.set(key, serde_json::to_value(value).map_err(|e| e.to_string())?);
     store.save().map_err(|e| e.to_string())
+}
+
+/// Match stats from Highlightly, kept on disk because the free plan only
+/// allows 100 requests a day. Keyed by football-data's match id.
+#[derive(Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct StatsCache {
+    pub entries: HashMap<u64, StatsEntry>,
+    /// Requests left today, from the last response
+    pub requests_left: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StatsEntry {
+    /// Highlightly's id for the match; None if it couldn't be found
+    pub highlightly_id: Option<u64>,
+    pub stats: Option<MatchStats>,
+    pub fetched_at: DateTime<Utc>,
+    /// Fetched after full time, so it won't change any more
+    pub is_final: bool,
+}
+
+const STATS_FILE: &str = "stats.json";
+
+pub fn load_stats_cache<R: Runtime>(app: &AppHandle<R>) -> StatsCache {
+    load(app, STATS_FILE, "stats")
+}
+
+pub fn save_stats_cache<R: Runtime>(app: &AppHandle<R>, cache: &StatsCache) -> Result<(), String> {
+    save(app, STATS_FILE, "stats", cache)
 }
 
 pub fn load_settings<R: Runtime>(app: &AppHandle<R>) -> Settings {

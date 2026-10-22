@@ -7,6 +7,7 @@ use crate::api::Client;
 use crate::models::{MatchDetails, Snapshot};
 use crate::settings::{self, Settings};
 use crate::state::AppState;
+use crate::stats::{self, StatsResult};
 use crate::tray;
 
 pub const SETTINGS_EVENT: &str = "settings-updated";
@@ -39,6 +40,12 @@ pub async fn get_match_details(
     let details = client.fetch_match_details(&key, fixture_id).await.map_err(|e| e.user_message())?;
     state.store_details(details.clone());
     Ok(details)
+}
+
+/// Goals, cards, subs, team stats, line-ups and predictions (Highlightly).
+#[tauri::command]
+pub async fn get_match_stats<R: Runtime>(app: AppHandle<R>, fixture_id: u64) -> Result<StatsResult, String> {
+    stats::get_stats(&app, fixture_id).await
 }
 
 #[tauri::command]
@@ -92,6 +99,7 @@ fn apply_always_on_top<R: Runtime>(app: &AppHandle<R>, on: bool) {
 /// Cleans up values typed in the Settings screen.
 fn tidy(mut s: Settings) -> Settings {
     s.api_key = s.api_key.trim().to_string();
+    s.stats_api_key = s.stats_api_key.trim().to_string();
     s.refresh_minutes = s.refresh_minutes.clamp(1, 120);
     s.reminder_minutes.sort_unstable_by(|a, b| b.cmp(a));
     s.reminder_minutes.dedup();

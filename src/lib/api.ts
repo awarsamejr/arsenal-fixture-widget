@@ -6,7 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as mock from "./mock";
-import type { MatchDetails, Settings, Snapshot } from "./types";
+import type { MatchDetails, Settings, Snapshot, StatsResult } from "./types";
 
 const inApp = isTauri();
 
@@ -24,6 +24,10 @@ export const refreshNow = (): Promise<void> => (inApp ? invoke("refresh_now") : 
 /** Head-to-head etc. for one match; rejects with a readable message. */
 export const getMatchDetails = (fixtureId: number): Promise<MatchDetails> =>
   inApp ? invoke("get_match_details", { fixtureId }) : mock.getMatchDetails(fixtureId);
+
+/** Goals, cards, stats, line-ups (Highlightly); rejects with a readable message. */
+export const getMatchStats = (fixtureId: number): Promise<StatsResult> =>
+  inApp ? invoke("get_match_stats", { fixtureId }) : mock.getMatchStats(fixtureId);
 
 export const testNotification = (): Promise<void> =>
   inApp ? invoke("test_notification") : Promise.resolve(alert("Test notification"));

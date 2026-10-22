@@ -74,8 +74,62 @@ export interface StreamLink {
   url: string;
 }
 
+// ---------- Highlightly match stats (src-tauri/src/highlightly.rs) ----------
+
+export type EventKind = "goal" | "penaltyGoal" | "ownGoal" | "missedPenalty" | "yellowCard" | "redCard" | "substitution" | "var";
+
+export interface MatchEvent {
+  minute: string;
+  kind: EventKind;
+  arsenal: boolean;
+  player: string;
+  /** Assist for goals, player coming on for subs */
+  detail: string | null;
+}
+
+export interface StatLine {
+  label: string;
+  arsenal: number;
+  opponent: number;
+  format: "percent" | "decimal" | "count";
+}
+
+export interface LineupPlayer {
+  name: string;
+  number: number | null;
+}
+
+export interface TeamLineup {
+  formation: string | null;
+  /** Goalkeeper first, then each line further forward, left to right */
+  rows: LineupPlayer[][];
+  substitutes: LineupPlayer[];
+}
+
+export interface Prediction {
+  arsenalWin: number;
+  draw: number;
+  opponentWin: number;
+  live: boolean;
+}
+
+export interface MatchStats {
+  events: MatchEvent[];
+  stats: StatLine[];
+  lineups: { arsenal: TeamLineup; opponent: TeamLineup } | null;
+  venue: string | null;
+  weather: string | null;
+  prediction: Prediction | null;
+}
+
+export type StatsResult =
+  | { status: "noKey" }
+  | { status: "notFound" }
+  | { status: "ready"; stats: MatchStats; requestsLeft: number | null };
+
 export interface Settings {
   apiKey: string;
+  statsApiKey: string;
   reminderMinutes: number[];
   resultNotifications: boolean;
   refreshMinutes: number;

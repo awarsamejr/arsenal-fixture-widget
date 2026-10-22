@@ -112,6 +112,25 @@ export function SettingsView({ settings, hasApiKey }: { settings: Settings; hasA
         </div>
       </Card>
 
+      <Card title="Match stats key">
+        <p className="text-[12px] leading-relaxed text-muted">
+          Goals, cards, line-ups and stats come from{" "}
+          <button className="text-white underline decoration-gunner underline-offset-2" onClick={() => openLink("https://highlightly.net")}>
+            Highlightly
+          </button>{" "}
+          (free, 100 requests a day). Leave blank to use <code className="text-white/80">highlightly_key.txt</code>.
+        </p>
+        <input
+          type={showKey ? "text" : "password"}
+          value={draft.statsApiKey}
+          onChange={(e) => update({ statsApiKey: e.target.value })}
+          placeholder="Paste your Highlightly key"
+          className={`${input} font-mono`}
+          spellCheck={false}
+          autoComplete="off"
+        />
+      </Card>
+
       <Card title="Reminders">
         <div>
           <div className="mb-2 text-[13px]">Notify me before kick-off</div>

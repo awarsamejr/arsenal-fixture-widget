@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { getMatchDetails } from "../lib/api";
+import { getMatchDetails, getMatchStats } from "../lib/api";
 import { formBefore, isLive, stageLabel } from "../lib/format";
 import { useNow } from "../lib/hooks";
-import type { Fixture, MatchDetails, Snapshot } from "../lib/types";
+import type { Fixture, MatchDetails, Snapshot, StatsResult } from "../lib/types";
 import { Crest } from "./Crest";
 import { FixtureRow, OutcomeChip } from "./FixtureRow";
+import { LineupView, PredictionBar, StatBars, Timeline } from "./MatchStats";
 import { NextMatchHero } from "./NextMatchHero";
 import { SectionTitle } from "./views";
 
@@ -19,6 +20,8 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
   const now = useNow(1000);
   const [details, setDetails] = useState<MatchDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<StatsResult | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -27,10 +30,29 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
       .catch((e) => setError(String(e)));
   }, [f.id]);
 
+  const loadStats = useCallback(() => {
+    setStatsError(null);
+    getMatchStats(f.id)
+      .then(setStats)
+      .catch((e) => setStatsError(String(e)));
+  }, [f.id]);
+
   useEffect(() => {
     setDetails(null);
     load();
   }, [load]);
+
+  // Stats reload with the match status, so a live match keeps updating
+  useEffect(() => {
+    loadStats();
+  }, [loadStats, f.status, f.arsenalGoals, f.opponentGoals]);
+  useEffect(() => {
+    if (!isLive(f)) return;
+    const id = setInterval(loadStats, 60_000);
+    return () => clearInterval(id);
+  }, [loadStats, f.status]);
+
+  const ready = stats?.status === "ready" ? stats.stats : null;
 
   // Esc goes back
   useEffect(() => {
@@ -50,9 +72,11 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
       kickoff.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) +
         (f.timeTbd ? " · time TBC" : ` · ${kickoff.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`),
     ],
-    ["Venue", f.home ? "Emirates Stadium" : `Away at ${f.opponent.shortName}`],
+    ["Venue", ready?.venue ?? (f.home ? "Emirates Stadium" : `Away at ${f.opponent.shortName}`)],
   ];
   if (f.referee) info.push(["Referee", f.referee]);
+  if (ready?.weather) info.push([f.status === "scheduled" ? "Forecast" : "Weather", ready.weather]);
+  const played = f.status === "finished" || isLive(f);
 
   return (
     <div className="space-y-4">
@@ -61,6 +85,9 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
       </button>
 
       <NextMatchHero fixture={f} now={now} />
+
+      {ready && played && <Timeline events={ready.events} fixture={f} />}
+      {ready?.prediction && f.status !== "finished" && <PredictionBar prediction={ready.prediction} fixture={f} />}
 
       <section>
         <SectionTitle>Match info</SectionTitle>
@@ -126,13 +153,44 @@ export function MatchDetailView({ fixture: f, snapshot, onBack }: Props) {
         )}
       </section>
 
-      {(f.status === "finished" || isLive(f)) && (
-        <section className="rounded-xl border border-dashed border-line p-3.5 text-[12px] leading-relaxed text-muted">
-          Goalscorers, cards, line-ups and match stats are coming soon.
-        </section>
-      )}
+      {ready && played && <StatBars stats={ready.stats} fixture={f} />}
+      {ready?.lineups && <LineupView lineups={ready.lineups} fixture={f} />}
+
+      <StatsStatus result={stats} error={statsError} played={played} onRetry={loadStats} />
     </div>
   );
+}
+
+/** Loading / missing-key / not-found / error messages for the stats part, plus the daily quota. */
+function StatsStatus({ result, error, played, onRetry }: { result: StatsResult | null; error: string | null; played: boolean; onRetry: () => void }) {
+  const box = "rounded-xl border border-dashed border-line p-3.5 text-[12px] leading-relaxed text-muted";
+  if (error) {
+    return (
+      <div className={box}>
+        <p className="text-loss">{error}</p>
+        <button onClick={onRetry} className="mt-1 underline underline-offset-2 hover:text-white">Try again</button>
+      </div>
+    );
+  }
+  if (!result) {
+    return played ? <div className="h-40 animate-pulse rounded-xl bg-panel" aria-label="Loading match stats" /> : null;
+  }
+  if (result.status === "noKey") {
+    return (
+      <p className={box}>
+        Add a free Highlightly key in Settings to see goals, cards, line-ups and match stats.
+      </p>
+    );
+  }
+  if (result.status === "notFound") {
+    return <p className={box}>No detailed stats available for this match.</p>;
+  }
+  if (!played && !result.stats.lineups) {
+    return <p className={box}>Line-ups usually appear about an hour before kick-off.</p>;
+  }
+  return result.requestsLeft != null ? (
+    <p className="px-1 text-center text-[11px] text-muted">Stats by Highlightly · {result.requestsLeft} requests left today</p>
+  ) : null;
 }
 
 function HeadToHeadCard({ details, opponent, now }: { details: MatchDetails; opponent: string; now: Date }) {

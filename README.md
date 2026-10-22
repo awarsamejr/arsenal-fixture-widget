@@ -12,17 +12,23 @@ Built with [Tauri 2](https://tauri.app) (Rust) and React + TypeScript. The insta
 - **Live score**: on match day the card switches to the score with a pulsing LIVE / HT badge, refreshed every minute
 - **Coming up**: every upcoming fixture, with search by opponent (partial names and nicknames like "spurs" work)
 - **Results**: recent scores with W/D/L, a form guide and the season record
+- **Match screen**: click any match for the timeline (goals with assists, cards, subs), team stats (possession, xG, shots, passing…), line-ups on a pitch, win probability, venue and weather, league positions, form going in, and head-to-head with the last 10 meetings
 - **Table**: Premier League standings with Arsenal highlighted
 - **Watch**: your own list of streaming links that open in your browser
 - **Reminders**: Windows notifications before kick-off (1 day, 3 hours, 1 hour, 30/15 min, kick-off, as you choose) and the full-time result
 - **Tray icon**: click to show/hide; the menu has Refresh, Always on top and Quit. Hover it to see the next match
 - Remembers its size and position; works offline with the last data it loaded
 
-## Getting an API key 🔑
+## Getting API keys 🔑
 
-Fixtures come from [football-data.org](https://www.football-data.org/client/register). The free tier is enough.
+The widget uses two free APIs:
 
-Either paste the key into **Settings → API key** in the widget, or put it in a file called `api_key.txt` next to `arsenal-widget.exe`. The Settings key wins if both are set. `api_key.txt` is git-ignored.
+| What | Where | Settings field | Or a file next to the exe |
+|---|---|---|---|
+| Fixtures, results, table, head-to-head | [football-data.org](https://www.football-data.org/client/register) | API key | `api_key.txt` |
+| Goals, cards, line-ups, match stats (optional) | [Highlightly](https://highlightly.net) | Match stats key | `highlightly_key.txt` |
+
+A key typed into Settings wins over the file. Both files are git-ignored. Highlightly's free plan allows 100 requests a day; finished matches are cached for good, so you'll rarely get near it.
 
 ## Using it 🚀
 
@@ -37,7 +43,7 @@ You need [Rust](https://rustup.rs), [Node.js](https://nodejs.org) 20+, and the V
 ```bash
 npm install
 npm run tauri dev      # run the app with hot reload
-npm run dev            # UI only, in a browser, with sample data (add ?live, ?nokey or ?error to the URL)
+npm run dev            # UI only, in a browser, with sample data (add ?live, ?nokey, ?nostats or ?error to the URL)
 npm test               # frontend tests (Vitest)
 cd src-tauri && cargo test   # Rust tests
 npm run tauri build    # release exe + installer
@@ -50,6 +56,8 @@ In dev builds, `api_key.txt` in the project folder is picked up automatically.
 ```plaintext
 src-tauri/src/          Rust: owns the data, timers and notifications
   api.rs                football-data.org client (the key never leaves Rust)
+  highlightly.rs        Highlightly client: events, stats, line-ups, predictions
+  stats.rs              on-demand match stats with a disk cache (finished matches never refetched)
   models.rs             API shapes → tidy fixtures / table rows for the UI
   scheduler.rs          when to refresh (faster around matches) and which reminders are due
   settings.rs           settings + cache stored in the app data folder
@@ -65,7 +73,7 @@ The Rust side polls every 15 minutes (configurable), every minute from 15 minute
 
 ## Ideas 💡
 
-- Player stats and line-ups (needs a paid API tier)
+- Player ratings and shot maps (Highlightly has the data)
 - Start with Windows
 - Support for other teams
 

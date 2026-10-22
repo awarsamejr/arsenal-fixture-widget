@@ -1,9 +1,11 @@
 mod api;
 mod commands;
+mod highlightly;
 mod models;
 mod scheduler;
 mod settings;
 mod state;
+mod stats;
 mod tray;
 
 use tauri::{Manager, WindowEvent};
@@ -26,6 +28,8 @@ pub fn run() {
             let always_on_top = settings.always_on_top;
             app.manage(AppState::new(settings, cache));
             app.manage(api::Client::new()); // for requests the UI makes, like match details
+            app.manage(highlightly::StatsClient::new());
+            app.manage(stats::StatsStore(std::sync::Mutex::new(settings::load_stats_cache(handle))));
 
             if let Some(window) = app.get_webview_window("main") {
                 window.set_always_on_top(always_on_top)?;
@@ -49,6 +53,7 @@ pub fn run() {
             commands::save_settings,
             commands::refresh_now,
             commands::get_match_details,
+            commands::get_match_stats,
             commands::test_notification,
         ])
         .run(tauri::generate_context!())
